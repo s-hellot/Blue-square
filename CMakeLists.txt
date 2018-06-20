@@ -18,5 +18,6 @@ link_directories(C:/Users/Simon/Documents/glfw-3.2.1.bin.WIN32/glfw-3.2.1.bin.WI
 include_directories(C:/Users/Simon/Documents/glew-2.1.0/include/)
 link_directories(C:/Users/Simon/Documents/glew-2.1.0/bin/lib)
 
-add_executable(HelloOpenGL hello_opengl.cpp)
+include_directories(C:/Users/Simon/Projets/MV/Shader)
+add_executable(HelloOpenGL hello_opengl.cpp Shader/shader.cpp Shader/shader.hpp SimpleFragmentShader.fragmentshader SimpleVertexShader.vertexshader)
 target_link_libraries(HelloOpenGL ${OPENGL_LIBRARIES} glfw3 glew32) #${GLEW_LIBRARIES} ${GLFW_LIBRARIES} ${GLM_LIBRARIES})
