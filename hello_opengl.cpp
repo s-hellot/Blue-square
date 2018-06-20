@@ -65,7 +65,7 @@ int main()
     do {
         glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
         glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
-        glBindBuffer (GL_ARRAY_BUFFER, vboID) ; // unlock buffer twice ?
+        glBindBuffer (GL_ARRAY_BUFFER, vboID) ; 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
         glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
         glDisableVertexAttribArray (0) ;
