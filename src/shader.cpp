@@ -19,6 +19,7 @@ GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path
 	// Create the shaders
 	GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+    bool error = false ;
 
 	// Read the Vertex Shader code from the file
 	std::string VertexShaderCode;
@@ -98,14 +99,14 @@ GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path
 		printf("%s\n", &ProgramErrorMessage[0]);
 	}
 
-	
+
 	glDetachShader(ProgramID, VertexShaderID);
 	glDetachShader(ProgramID, FragmentShaderID);
-	
+
 	glDeleteShader(VertexShaderID);
 	glDeleteShader(FragmentShaderID);
 
-	return ProgramID;
+	return (error == true ? 0 : ProgramID) ;
 }
 
 

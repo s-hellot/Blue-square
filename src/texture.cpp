@@ -18,6 +18,7 @@ using namespac glm ;
 
 #include "cloud.h"
 #include "LUT.h"
+#include "LUT2D.h"
 using namespace glm ;
 
 //#include "checker.c"
@@ -107,14 +108,14 @@ GLuint loadLUT () {
     GLuint textureID ;
     glGenTextures (1, &textureID) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glBindTexture (GL_TEXTURE_2D, textureID) ;
+    glBindTexture (GL_TEXTURE_1D, textureID) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RGB, g_lut_texture_width,1, 0, GL_RGB, GL_BYTE, g_lut_texture_data) ; // load the image
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, g_lut_texture_width, 0, GL_RGB, GL_FLOAT, g_lut_texture_data) ; // load the image
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // interpolation mode
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // interpolation mode
     return textureID ;
 }
 
@@ -159,39 +160,40 @@ int main()
         glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
         glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        //GLuint textureID = loadTexture() ;
+        GLuint lutID = loadLUT() ;
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
         GLuint brightness = glGetUniformLocation (programID, "bright") ;
         GLuint contrast = glGetUniformLocation(programID, "contr") ;
+        GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         double xpos, ypos ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (programID) ; // use the shader
             glfwGetCursorPos(window, &xpos, &ypos) ;
-           // checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
-            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             glUniform1i (textureSampler, 0) ;
+            glActiveTexture(GL_TEXTURE1) ;
+            glBindTexture(GL_TEXTURE_1D, lutID) ;
+            glUniform1i (lutSampler, 0) ;
             // brightness 0 at the middle -1 at left corner and 1 at right corner
             glUniform1f (brightness, (float) (ypos-384)/384) ;
             glUniform1f (contrast, (float) xpos/612) ;
             glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
             glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
-            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
             glEnableVertexAttribArray (1) ;
             glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
             glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
-           // checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             glDisableVertexAttribArray (0) ;
             glDisableVertexAttribArray (1) ;
             glfwSwapBuffers(window) ;
             glfwPollEvents() ; // process events already in the event queue
+            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             //getKey uses qwerty keyboard
         } while (closeWindow(window) == 0)  ;
         glDeleteVertexArrays (1, &vaoID) ;
