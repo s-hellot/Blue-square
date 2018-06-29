@@ -25,9 +25,9 @@ using namespace glm ;
 #define HEIGHT 768
 using namespace std;
 
-// lut.h data in a big 1D array
 // change when click
 // try other LUT table ?
+// cmake rule to copy only modified shader file
 
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
@@ -94,14 +94,8 @@ GLuint loadTexture () {
         0.0f, 1.0f,
         1.0f, 0.0f,
     } ;
-/*    float lum [4] ;
-    for (int i = 0 ; i < 4 ; i++) {
-        lum[i] = 0.2126*pixels[i*3] + 0.7152*pixels[(i+1)*3] + 0.0722*pixels[(i+2)*3] ;
-    }
- */
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    //glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RGB, 2, 2, 0, GL_RGB, GL_FLOAT, pixels) ; // check if their is enough memory in the GPU if not set image state to 0
-    //glTexImage2D(GL_TEXTURE_2D,0,GL_RED, 2, 2, 0, GL_RED, GL_FLOAT, pixels) ;
+    glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
     glTexImage2D(GL_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
@@ -129,9 +123,6 @@ GLuint loadLUT () {
         pixels[3 * i    ] = g_lut_texture_data[i][0] ;
         pixels[3 * i + 1] = g_lut_texture_data[i][1] ;
         pixels[3 * i + 2] = g_lut_texture_data[i][2] ;
-    }
-    for (int i = 0 ; i < 3*g_lut_texture_width - 2 ; i+=3) {
-        cout << (int) pixels [i] << ";" << (int) pixels [i+1] << ";" << (int) pixels [i+2] << endl ;
     }
     GLuint textureID ;
     glGenTextures (1, &textureID) ;
