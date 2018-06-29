@@ -18,6 +18,11 @@ using namespac glm ;
 
 #include "cloud.h"
 #include "LUT.h"
+#include "LUT_CYAN.h"
+#include "LUT_FIRE.h"
+#include "LUT_GFB.h"
+#include "LUT_ICE.h"
+
 using namespace glm ;
 
 //#include "checker.c"
@@ -25,8 +30,6 @@ using namespace glm ;
 #define HEIGHT 768
 using namespace std;
 
-// change when click
-// try other LUT table ?
 // cmake rule to copy only modified shader file
 
 GLFWwindow* initGlfwAndWindow () {
@@ -117,18 +120,18 @@ void initGlew () {
 bool closeWindow (GLFWwindow* window) {
     return ((glfwGetKey (window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) || (glfwWindowShouldClose(window) != 0) || (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)) ;
 }
-GLuint loadLUT () {
-    unsigned char *pixels = new unsigned char [g_lut_texture_width*3] ;
-    for (int i =  0 ; i < g_lut_texture_width ; ++i) {
-        pixels[3 * i    ] = g_lut_texture_data[i][0] ;
-        pixels[3 * i + 1] = g_lut_texture_data[i][1] ;
-        pixels[3 * i + 2] = g_lut_texture_data[i][2] ;
+GLuint loadLUT (unsigned char data [256][3]) {
+    unsigned char *pixels = new unsigned char [256*3] ;
+    for (int i =  0 ; i < 256 ; ++i) {
+        pixels[3 * i    ] = data[i][0] ;
+        pixels[3 * i + 1] = data[i][1] ;
+        pixels[3 * i + 2] = data[i][2] ;
     }
     GLuint textureID ;
     glGenTextures (1, &textureID) ;
     glBindTexture (GL_TEXTURE_1D, textureID) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, g_lut_texture_width, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels) ; // load the image
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels) ; // load the image
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); //wrapping mode
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
@@ -137,8 +140,12 @@ GLuint loadLUT () {
     return textureID ;
 }
 
+
 int main()
 {
+    /*int indexLut ;
+    cout << "0 : lut magenta " << endl << "1 : lut cyan " << endl << "2 : lut fire " << endl << "3 : lut green fire blue " << endl << "4 : lut ice " << endl ;
+    cin >> indexLut ;*/
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
     // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
@@ -178,7 +185,7 @@ int main()
         glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
         glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        GLuint lutID = loadLUT() ;
+        GLuint lutID = loadLUT(g_lut_texture_data) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
@@ -218,7 +225,7 @@ int main()
             glDisableVertexAttribArray (1) ;
             glfwSwapBuffers(window) ;
             glfwPollEvents() ; // process events already in the event queue
-            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             //getKey uses qwerty keyboard
         } while (closeWindow(window) == 0)  ;
         glDeleteVertexArrays (1, &vaoID) ;
