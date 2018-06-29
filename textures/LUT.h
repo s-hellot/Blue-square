@@ -5,13 +5,13 @@ static unsigned int g_lut_texture_height = 1;
 
 /*  Call this macro repeatedly.  After each use, the pixel data can be extracted  */
 
-#define HEADER_PIXEL(data,pixel) {\
-pixel[0] = header_data_cmap[(unsigned char)data[0]][0]; \
-pixel[1] = header_data_cmap[(unsigned char)data[0]][1]; \
-pixel[2] = header_data_cmap[(unsigned char)data[0]][2]; \
+#define LUT_HEADER_PIXEL(data,pixel) {\
+pixel[0] = g_lut_texture_header_data[(unsigned char)*data[0]][0]; \
+pixel[1] = g_lut_texture_header_data[(unsigned char)*data[0]][1]; \
+pixel[2] = g_lut_texture_header_data[(unsigned char)*data[0]][2]; \
 data ++; }
 
-static char g_lut_texture_data[256][3] = {
+static unsigned char g_lut_texture_data[256][3] = {
 	{  0,  0,  0},
 	{  1,  0,  1},
 	{  3,  0,  3},

@@ -14,8 +14,10 @@ void main()
 {
     float texel=texture (myTextureSampler, coord).r;
     vec3 color8from8lut = texture (myLutSampler, texel).rgb ;
-	//color = vec3((texel-0.5)*contr+0.5+bright, (texel-0.5)*contr+0.5+bright, (texel-0.5)*contr+0.5+bright) ;
+    color = (color8from8lut-0.5)*contr+0.5+bright;
+	//color = vec3(luminance, luminance, luminance) ;
+
     //color = texture (myTextureSampler, coord).rgb ;
     //color = vec3 (texel, texel, texel) ;
-    color = (color8from8lut-0.5)*contr+0.5+bright;
+    //color = (color8from8lut-0.5)*contr+0.5+bright;
 }

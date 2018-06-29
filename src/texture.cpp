@@ -18,7 +18,6 @@ using namespac glm ;
 
 #include "cloud.h"
 #include "LUT.h"
-#include "LUT2D.h"
 using namespace glm ;
 
 //#include "checker.c"
@@ -26,6 +25,9 @@ using namespace glm ;
 #define HEIGHT 768
 using namespace std;
 
+// lut.h data in a big 1D array
+// change when click
+// try other LUT table ?
 
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
@@ -69,6 +71,21 @@ bool checkGLError(string FILE, string FUNCTION, int LINE) {
     return (err !=  GL_NO_ERROR) ;
 }
 GLuint loadTexture () {
+    char* p_data = new char[g_cloud_texture_width * g_cloud_texture_height];
+    if (!p_data)
+    {
+        cerr << "Not enough memory" << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    char* p_temp = g_cloud_texture_data;
+    unsigned char p_pixel[3];
+    for (int i = 0; i < g_cloud_texture_width * g_cloud_texture_height; ++i)
+    {
+        CLOUD_HEADER_PIXEL(p_temp, p_pixel);
+        p_data[i] = p_temp[0];
+    }
+
     GLuint textureID ;
     glGenTextures (1, &textureID) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
@@ -85,15 +102,17 @@ GLuint loadTexture () {
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     //glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RGB, 2, 2, 0, GL_RGB, GL_FLOAT, pixels) ; // check if their is enough memory in the GPU if not set image state to 0
     //glTexImage2D(GL_TEXTURE_2D,0,GL_RED, 2, 2, 0, GL_RED, GL_FLOAT, pixels) ;
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_FLOAT, g_cloud_texture_data) ; // load the image
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // interpolation mode
+
+    delete [] p_data;
     return textureID ;
 }
-// https://opengl.developpez.com/tutoriels/open_gl/textures/
+
 void initGlew () {
     glewExperimental = true ;
     if (glewInit () != GLEW_OK) {
@@ -105,15 +124,23 @@ bool closeWindow (GLFWwindow* window) {
     return ((glfwGetKey (window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) || (glfwWindowShouldClose(window) != 0) || (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)) ;
 }
 GLuint loadLUT () {
+    unsigned char *pixels = new unsigned char [g_lut_texture_width*3] ;
+    for (int i =  0 ; i < g_lut_texture_width ; ++i) {
+        pixels[3 * i    ] = g_lut_texture_data[i][0] ;
+        pixels[3 * i + 1] = g_lut_texture_data[i][1] ;
+        pixels[3 * i + 2] = g_lut_texture_data[i][2] ;
+    }
+    for (int i = 0 ; i < 3*g_lut_texture_width - 2 ; i+=3) {
+        cout << (int) pixels [i] << ";" << (int) pixels [i+1] << ";" << (int) pixels [i+2] << endl ;
+    }
     GLuint textureID ;
     glGenTextures (1, &textureID) ;
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glBindTexture (GL_TEXTURE_1D, textureID) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, g_lut_texture_width, 0, GL_RGB, GL_FLOAT, g_lut_texture_data) ; // load the image
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, g_lut_texture_width, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels) ; // load the image
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); //wrapping mode
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // interpolation mode
     return textureID ;
@@ -161,6 +188,7 @@ int main()
         glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint lutID = loadLUT() ;
+        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
@@ -181,6 +209,7 @@ int main()
             glUniform1i (lutSampler, 0) ;
             // brightness 0 at the middle -1 at left corner and 1 at right corner
             glUniform1f (brightness, (float) (ypos-384)/384) ;
+            // contrast 0 at the left corner 1 at the middle and 2 at the right corner
             glUniform1f (contrast, (float) xpos/612) ;
             glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
             glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
@@ -193,7 +222,7 @@ int main()
             glDisableVertexAttribArray (1) ;
             glfwSwapBuffers(window) ;
             glfwPollEvents() ; // process events already in the event queue
-            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             //getKey uses qwerty keyboard
         } while (closeWindow(window) == 0)  ;
         glDeleteVertexArrays (1, &vaoID) ;

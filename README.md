@@ -1,2 +1,4 @@
-texture.cpp load the cloud texture and change the brightness and contrast according to y and x directions
-LUT table generated from Fiji but not working properly
+LUT table is working
+Contrast and brightness change according to x and y directions
+To do :
+Need to change when the user click and not all the time
