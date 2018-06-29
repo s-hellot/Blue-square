@@ -187,11 +187,16 @@ int main()
         GLuint contrast = glGetUniformLocation(programID, "contr") ;
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        double xpos, ypos ;
+        double xpos = 612, ypos = 384 ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (programID) ; // use the shader
-            glfwGetCursorPos(window, &xpos, &ypos) ;
+            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
+                glfwGetCursorPos(window, &xpos, &ypos) ;
+            } else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+                xpos = 612 ;
+                ypos = 384 ;
+            }
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
             glUniform1i (textureSampler, 0) ;
