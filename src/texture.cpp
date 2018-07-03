@@ -41,6 +41,7 @@ GLFWwindow* initGlfwAndWindow () {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
+    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE) ;
 
     GLFWwindow* window ;
     window = glfwCreateWindow (WIDTH, HEIGHT, "First Window", NULL, NULL ) ;
@@ -140,19 +141,32 @@ GLuint loadLUT (unsigned char data [256][3]) {
     return textureID ;
 }
 
+void cursorMove (GLFWwindow* window, double xpos, double ypos) {
+    GLint programID ;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
+    GLuint brightness = glGetUniformLocation (programID, "bright") ;
+    GLuint contrast = glGetUniformLocation(programID, "contr") ;
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        // brightness 0 at the middle -1 at left corner and 1 at right corner
+        glUniform1f (brightness, (float) (ypos-HEIGHT/2)/HEIGHT/2) ;
+        // contrast 0 at the left corner 1 at the middle and 2 at the right corner
+        glUniform1f (contrast, (float) xpos/(WIDTH/2)) ;
+    }
+}
+
 
 int main()
 {
-    /*int indexLut ;
-    cout << "0 : lut magenta " << endl << "1 : lut cyan " << endl << "2 : lut fire " << endl << "3 : lut green fire blue " << endl << "4 : lut ice " << endl ;
-    cin >> indexLut ;*/
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
     // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
     GLuint programID = LoadShaders("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+    mat4 projection ;
+    projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
     if (programID == 0 ) {
+            cout << "error loading shader" << endl ;
             return 0 ;
     } else {
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
@@ -190,30 +204,35 @@ int main()
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
-        GLuint brightness = glGetUniformLocation (programID, "bright") ;
-        GLuint contrast = glGetUniformLocation(programID, "contr") ;
+        //GLuint brightness = glGetUniformLocation (programID, "bright") ;
+        //GLuint contrast = glGetUniformLocation(programID, "contr") ;
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
+        GLuint matProj = glGetUniformLocation (programID, "projection") ;
+        GLFWcursorposfun callback = &cursorMove ;
+        glfwSetCursorPosCallback(window, callback) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        double xpos = 612, ypos = 384 ;
+        //double xpos = 612, ypos = 384 ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (programID) ; // use the shader
-            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
+           /* if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
                 glfwGetCursorPos(window, &xpos, &ypos) ;
             } else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
                 xpos = 612 ;
                 ypos = 384 ;
-            }
+            }*/
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
             glUniform1i (textureSampler, 0) ;
+            GLuint lutID = loadLUT(g_lut_texture_data) ;
             glActiveTexture(GL_TEXTURE1) ;
             glBindTexture(GL_TEXTURE_1D, lutID) ;
             glUniform1i (lutSampler, 0) ;
             // brightness 0 at the middle -1 at left corner and 1 at right corner
-            glUniform1f (brightness, (float) (ypos-384)/384) ;
+            //glUniform1f (brightness, (float) (ypos-384)/384) ;
             // contrast 0 at the left corner 1 at the middle and 2 at the right corner
-            glUniform1f (contrast, (float) xpos/612) ;
+            //glUniform1f (contrast, (float) xpos/612) ;
+            glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
             glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
             glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read

@@ -18,6 +18,8 @@ link_directories(C:/Users/Simon/Documents/glfw-3.2.1.bin.WIN32/glfw-3.2.1.bin.WI
 include_directories(C:/Users/Simon/Documents/glew-2.1.0/include/)
 link_directories(C:/Users/Simon/Documents/glew-2.1.0/bin/lib)
 
+#add_definitions(-DSHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+
 include_directories(../include)
 include_directories(../contrib)
 include_directories(../textures)

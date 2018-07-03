@@ -49,6 +49,8 @@ void initGlew () {
 bool closeWindow (GLFWwindow* window) {
     return ((glfwGetKey (window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) || (glfwWindowShouldClose(window) != 0) || (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)) ;
 }
+
+
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
