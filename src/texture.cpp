@@ -26,8 +26,8 @@ using namespac glm ;
 using namespace glm ;
 
 //#include "checker.c"
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH_INIT 1024
+#define HEIGHT_INIT 768
 using namespace std;
 
 // cmake rule to copy only modified shader file
@@ -44,7 +44,7 @@ GLFWwindow* initGlfwAndWindow () {
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE) ;
 
     GLFWwindow* window ;
-    window = glfwCreateWindow (WIDTH, HEIGHT, "First Window", NULL, NULL ) ;
+    window = glfwCreateWindow (WIDTH_INIT, HEIGHT_INIT, "First Window", NULL, NULL ) ;
     if (window == NULL) {
         fprintf (stderr, "Failed to open GLFW window\n") ;
         glfwTerminate() ;
@@ -149,9 +149,9 @@ void cursorMove (GLFWwindow* window, double xpos, double ypos) {
     GLuint contrast = glGetUniformLocation(programID, "contr") ;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         // brightness 0 at the middle -1 at left corner and 1 at right corner
-        glUniform1f (brightness, (float) (ypos-HEIGHT/2)/HEIGHT/2) ;
+        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2) ;
         // contrast 0 at the left corner 1 at the middle and 2 at the right corner
-        glUniform1f (contrast, (float) xpos/(WIDTH/2)) ;
+        glUniform1f (contrast, (float) xpos/(WIDTH_INIT/2)) ;
     }
 }
 
@@ -170,11 +170,20 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods) {
         glUniform1f (contrast, 1.0f) ;
     } else if ((button == GLFW_MOUSE_BUTTON_LEFT) && (action == GLFW_PRESS)) {
         glfwGetCursorPos(window, &xpos, &ypos) ;
-        glUniform1f (brightness, (float) (ypos-HEIGHT/2)/HEIGHT/2) ;
-        glUniform1f (contrast, xpos/(WIDTH/2)) ;
+        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2) ;
+        glUniform1f (contrast, xpos/(WIDTH_INIT/2)) ;
     }
 }
 
+void windowPosition (GLFWwindow* window, int width, int height) {
+    GLint programID ;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
+    GLuint uWidth = glGetUniformLocation (programID, "width") ;
+    GLuint uHeight = glGetUniformLocation (programID, "height") ;
+    glUniform1i (uWidth, width/WIDTH_INIT) ;
+    glUniform1i (uHeight, height/HEIGHT_INIT) ;
+
+}
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
@@ -224,8 +233,6 @@ int main()
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
-        //GLuint brightness = glGetUniformLocation (programID, "bright") ;
-        //GLuint contrast = glGetUniformLocation(programID, "contr") ;
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         GLuint matProj = glGetUniformLocation (programID, "projection") ;
         GLFWcursorposfun callbackCursor = &cursorMove ;
@@ -239,7 +246,6 @@ int main()
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
             glUniform1i (textureSampler, 0) ;
-            GLuint lutID = loadLUT(g_lut_texture_data) ;
             glActiveTexture(GL_TEXTURE1) ;
             glBindTexture(GL_TEXTURE_1D, lutID) ;
             glUniform1i (lutSampler, 0) ;
@@ -259,7 +265,7 @@ int main()
             glDisableVertexAttribArray (1) ;
             glfwSwapBuffers(window) ;
             glfwPollEvents() ; // process events already in the event queue
-            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
             //getKey uses qwerty keyboard
         } while (closeWindow(window) == 0)  ;
         glDeleteVertexArrays (1, &vaoID) ;
