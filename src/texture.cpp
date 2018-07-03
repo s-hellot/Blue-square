@@ -141,6 +141,7 @@ GLuint loadLUT (unsigned char data [256][3]) {
     return textureID ;
 }
 
+// when you click and move the mouse the brightness and contrast change
 void cursorMove (GLFWwindow* window, double xpos, double ypos) {
     GLint programID ;
     glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
@@ -154,6 +155,25 @@ void cursorMove (GLFWwindow* window, double xpos, double ypos) {
     }
 }
 
+/* when you right click the picture is reset to no brightness and contrast change
+ when you left click you change brightness and contrast (if you just left click without moving the mouse
+                                                        it isn't treated in cursorMove)*/
+void mouseButton (GLFWwindow* window, int button, int action, int mods) {
+    double xpos, ypos ;
+    GLint programID ;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
+    GLuint brightness = glGetUniformLocation (programID, "bright") ;
+    GLuint contrast = glGetUniformLocation(programID, "contr") ;
+    if ((button == GLFW_MOUSE_BUTTON_RIGHT) && (action == GLFW_PRESS)) {
+        // no change at the picture => brightness = 0 contrast = 1
+        glUniform1f (brightness, 0.0f) ;
+        glUniform1f (contrast, 1.0f) ;
+    } else if ((button == GLFW_MOUSE_BUTTON_LEFT) && (action == GLFW_PRESS)) {
+        glfwGetCursorPos(window, &xpos, &ypos) ;
+        glUniform1f (brightness, (float) (ypos-HEIGHT/2)/HEIGHT/2) ;
+        glUniform1f (contrast, xpos/(WIDTH/2)) ;
+    }
+}
 
 int main()
 {
@@ -208,19 +228,14 @@ int main()
         //GLuint contrast = glGetUniformLocation(programID, "contr") ;
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         GLuint matProj = glGetUniformLocation (programID, "projection") ;
-        GLFWcursorposfun callback = &cursorMove ;
-        glfwSetCursorPosCallback(window, callback) ;
+        GLFWcursorposfun callbackCursor = &cursorMove ;
+        glfwSetCursorPosCallback(window, callbackCursor) ;
+        GLFWmousebuttonfun callbackMouse = &mouseButton ;
+        glfwSetMouseButtonCallback(window, callbackMouse) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        //double xpos = 612, ypos = 384 ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (programID) ; // use the shader
-           /* if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
-                glfwGetCursorPos(window, &xpos, &ypos) ;
-            } else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-                xpos = 612 ;
-                ypos = 384 ;
-            }*/
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
             glUniform1i (textureSampler, 0) ;
