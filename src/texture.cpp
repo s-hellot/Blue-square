@@ -176,16 +176,10 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods) {
         // contrast 0 at the left corner 1 at the middle and 2 at the right corner
     }
 }
-/*
-void windowPosition (GLFWwindow* window, int width, int height) {
-    GLint programID ;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
-    GLuint uWidth = glGetUniformLocation (programID, "width") ;
-    GLuint uHeight = glGetUniformLocation (programID, "height") ;
-    glUniform1i (uWidth, width/WIDTH_INIT) ;
-    glUniform1i (uHeight, height/HEIGHT_INIT) ;
 
-}*/
+void windowPosition (GLFWwindow* window, int width, int height) {
+    glViewport (0, height/2, width/2, height/2) ;
+}
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
@@ -243,13 +237,16 @@ int main()
         glfwSetCursorPosCallback(window, callbackCursor) ;
         GLFWmousebuttonfun callbackMouse = &mouseButton ;
         glfwSetMouseButtonCallback(window, callbackMouse) ;
+        GLFWwindowsizefun sizeFunc = &windowPosition ;
+        glfwSetWindowSizeCallback(window, sizeFunc) ;
         //Callback function
         mat4 projection, viewportScale, viewportTranslate, viewport ;
         projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
-        viewportScale = mat4 (vec4 (0.5, 0, 0, 0), vec4 (0, 0.5, 0, 0), vec4 (0, 0, 0.5, 0), vec4 (0, 0, 0, 1)) ;
+        /*viewportScale = mat4 (vec4 (0.5, 0, 0, 0), vec4 (0, 0.5, 0, 0), vec4 (0, 0, 0.5, 0), vec4 (0, 0, 0, 1)) ;
         // vector applied to column first vector = first column
         viewportTranslate = mat4 (vec4 (1, 0, 0, 0), vec4 (0, 1, 0, 0), vec4 (0, 0, 1, 0), vec4 (-0.5, 0.5, 0, 1)) ;
-        viewport =  viewportTranslate * viewportScale ;
+        viewport =  viewportTranslate * viewportScale ;*/
+        viewport = mat4(1.0f) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously

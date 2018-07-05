@@ -22,14 +22,16 @@ using namespace glm ;
 #define HEIGHT 768
 using namespace std;
 
-vec3 cameraPos = vec3 (0.0f, 0.0f, 3.0f) ;
+vec3 cameraPos = vec3 (0.0f, 0.0f, 6.0f) ;
 vec3 cameraFront = vec3 (0.0f, 0.0f, -1.0f) ;
 vec3 cameraUp = vec3 (0.0f, 1.0f, 0.0f) ;
 float deltaTime = 0.0f ;
 bool firstMouse = false ;
 // true if it isn't the first time the mouse appears on the screen
 float lastX, lastY ;
-float pitch = 0, yaw = 0 ;
+float pitch = 0, yaw = -90 ;
+// yaw is init at -90 to remove the jump in x at first mouse input (still exist in z-axis)
+float fov = 45 ;
 
 bool checkGLError(string FILE, string FUNCTION, int LINE) {
     GLenum err = glGetError() ;
@@ -158,8 +160,6 @@ void mouseCallback (GLFWwindow* window, double xpos, double ypos) {
         yaw += xoffset ;
         pitch += yoffset ;
 
-
-
         if (pitch > 89) {
             pitch = 89 ;
         } else if (pitch < - 89) {
@@ -172,6 +172,12 @@ void mouseCallback (GLFWwindow* window, double xpos, double ypos) {
         frontDirection.z = cos(radians(pitch)) * sin(radians(yaw)) ;
         cameraFront = normalize(frontDirection) ;
     }
+}
+
+void scroll_callback (GLFWwindow* window, double xoffset, double yoffset) {
+    fov += yoffset ;
+    fov = (fov > 45)? 45 : fov ;
+    fov = (fov <  1)? 1  : fov ;
 }
 int main()
 {
@@ -239,7 +245,7 @@ int main()
 };
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     mat4 projection, view, model ;
-    projection = perspective(radians (120.0f), 1024.0f/768.0f, 0.10f, 100.0f) ;
+    //projection = perspective(radians (45.0f), 1024.0f/768.0f, 0.10f, 100.0f) ;
     //projection = ortho (4.0f, -4.0f, -5.0f, 5.0f, 0.1f, 100.0f) ;
     GLuint projID = glGetUniformLocation  (programID, "projection") ; //tell GLSL the location of MVP
     GLuint viewID = glGetUniformLocation  (programID, "view") ;
@@ -268,6 +274,8 @@ int main()
     glfwSetKeyCallback(window, keyFunc) ;
     GLFWcursorposfun cursorFunc = mouseCallback ;
     glfwSetCursorPosCallback(window, cursorFunc) ;
+    GLFWscrollfun scrollFunc = scroll_callback ;
+    glfwSetScrollCallback(window, scrollFunc) ;
     glEnable (GL_DEPTH_TEST) ;
     float lastFrame = 0.0f ;
     do {
@@ -280,6 +288,7 @@ int main()
         //camX= sin(glfwGetTime())*10 ;
         //camZ= cos(glfwGetTime())*10 ;
         view = lookAt(cameraPos, cameraPos + cameraFront, cameraUp) ;
+        projection = perspective(radians (fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
         glUniformMatrix4fv (projID, 1, GL_FALSE, &projection[0][0]) ;
         glUniformMatrix4fv (viewID, 1, GL_FALSE, &view[0][0]) ;
         glActiveTexture(GL_TEXTURE0) ;
