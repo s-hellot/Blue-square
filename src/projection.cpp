@@ -15,12 +15,43 @@ using namespac glm ;
 #include <shader.hpp>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "cloud.h"
 using namespace glm ;
 
 #define WIDTH 1024
 #define HEIGHT 768
 using namespace std;
 
+vec3 cameraPos = vec3 (0.0f, 0.0f, 3.0f) ;
+vec3 cameraFront = vec3 (0.0f, 0.0f, -1.0f) ;
+vec3 cameraUp = vec3 (0.0f, 1.0f, 0.0f) ;
+float deltaTime = 0.0f ;
+bool firstMouse = false ;
+// true if it isn't the first time the mouse appears on the screen
+float lastX, lastY ;
+float pitch = 0, yaw = 0 ;
+
+bool checkGLError(string FILE, string FUNCTION, int LINE) {
+    GLenum err = glGetError() ;
+    switch (err) {
+        case GL_INVALID_ENUM :
+            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            break ;
+        case GL_INVALID_VALUE :
+            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            break ;
+        case GL_INVALID_OPERATION :
+            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            break ;
+        case GL_INVALID_FRAMEBUFFER_OPERATION :
+            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE).  In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            break ;
+        case GL_OUT_OF_MEMORY :
+            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            break ;
+    }
+    return (err !=  GL_NO_ERROR) ;
+}
 
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
@@ -52,129 +83,224 @@ void initGlew () {
 bool closeWindow (GLFWwindow* window) {
     return ((glfwGetKey (window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) || (glfwWindowShouldClose(window) != 0) || (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)) ;
 }
+
+GLuint loadTexture () {
+    char* p_data = new char[g_cloud_texture_width * g_cloud_texture_height];
+    if (!p_data)
+    {
+        cerr << "Not enough memory" << endl;
+        exit(EXIT_FAILURE);
+    }
+
+    char* p_temp = g_cloud_texture_data;
+    unsigned char p_pixel[3];
+    for (int i = 0; i < g_cloud_texture_width * g_cloud_texture_height; ++i)
+    {
+        CLOUD_HEADER_PIXEL(p_temp, p_pixel);
+        p_data[i] = p_temp[0];
+    }
+
+    GLuint textureID ;
+    glGenTextures (1, &textureID) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    glBindTexture (GL_TEXTURE_2D, textureID) ;
+    float pixels [] = {
+        0.0f, 1.0f,
+        1.0f, 0.0f,
+    } ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // interpolation mode
+
+    delete [] p_data;
+    return textureID ;
+}
+
+void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods){
+    float cameraSpeed = 15.0f * deltaTime ;
+    switch (key) {
+    case GLFW_KEY_W :
+        cameraPos += cameraSpeed * cameraFront ;
+        break ;
+    case GLFW_KEY_S :
+        cameraPos -= cameraSpeed * cameraFront ;
+        break ;
+    case GLFW_KEY_A :
+        cameraPos -= normalize(cross (cameraFront, cameraUp))* cameraSpeed ;
+        break ;
+    case GLFW_KEY_D :
+        cameraPos += normalize(cross (cameraFront, cameraUp))* cameraSpeed ;
+        break ;
+    }
+}
+
+void mouseCallback (GLFWwindow* window, double xpos, double ypos) {
+    float xoffset, yoffset ;
+    if (firstMouse) {
+        lastX = xpos ;
+        lastY = ypos ;
+    } else {
+        xoffset = xpos - lastX ;
+        yoffset = lastY - ypos ;
+        // reversed with Y because y axis is bottom to top on the screen coordinate
+        // but we want to look up when the mouse cursor goes up (camera y-axis is opposite)
+        lastX = xpos ;
+        lastY = ypos ;
+        float sensitivity = 0.05f ;
+        xoffset *= sensitivity ;
+        yoffset *= sensitivity ;
+
+        yaw += xoffset ;
+        pitch += yoffset ;
+
+
+
+        if (pitch > 89) {
+            pitch = 89 ;
+        } else if (pitch < - 89) {
+            pitch = -89 ;
+        }
+        // you can only see above and below you not behind you
+        vec3 frontDirection ;
+        frontDirection.x = cos (radians(pitch)) * cos(radians(yaw)) ;
+        frontDirection.y = sin(radians(pitch)) ;
+        frontDirection.z = cos(radians(pitch)) * sin(radians(yaw)) ;
+        cameraFront = normalize(frontDirection) ;
+    }
+}
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
     // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glClearColor(0,255,0,0) ;
     GLuint programID = LoadShaders("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
-    float vertex [] = {
-    -1.0f,-1.0f,-1.0f, // triangle 1 : begin
-    -1.0f,-1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f, // triangle 1 : end
-    1.0f, 1.0f,-1.0f, // triangle 2 : begin
-    -1.0f,-1.0f,-1.0f,
-    -1.0f, 1.0f,-1.0f, // triangle 2 : end
-    1.0f,-1.0f, 1.0f,
-    -1.0f,-1.0f,-1.0f,
-    1.0f,-1.0f,-1.0f,
-    1.0f, 1.0f,-1.0f,
-    1.0f,-1.0f,-1.0f,
-    -1.0f,-1.0f,-1.0f,
-    -1.0f,-1.0f,-1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f,-1.0f,
-    1.0f,-1.0f, 1.0f,
-    -1.0f,-1.0f, 1.0f,
-    -1.0f,-1.0f,-1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f,-1.0f, 1.0f,
-    1.0f,-1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f,-1.0f,-1.0f,
-    1.0f, 1.0f,-1.0f,
-    1.0f,-1.0f,-1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f,-1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f,-1.0f,
-    -1.0f, 1.0f,-1.0f,
-    1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f,-1.0f,
-    -1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f,
-    1.0f,-1.0f, 1.0f
+    float vertices[] = {
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    } ;
+    vec3 cubePositions[] = {
+  vec3( 0.0f,  0.0f,  0.0f),
+  vec3( 2.0f,  5.0f, -15.0f),
+  vec3(-1.5f, -2.2f, -2.5f),
+  vec3(-3.8f, -2.0f, -12.3f),
+  vec3( 2.4f, -0.4f, -3.5f),
+  vec3(-1.7f,  3.0f, -7.5f),
+  vec3( 1.3f, -2.0f, -2.5f),
+  vec3( 1.5f,  2.0f, -2.5f),
+  vec3( 1.5f,  0.2f, -1.5f),
+  vec3(-1.3f,  1.0f, -1.5f)
 };
-    static const GLfloat g_color_buffer_data[] = {
- 0.583f,  0.771f,  0.014f,
-    0.609f,  0.115f,  0.436f,
-    0.327f,  0.483f,  0.844f,
-    0.822f,  0.569f,  0.201f,
-    0.435f,  0.602f,  0.223f,
-    0.310f,  0.747f,  0.185f,
-    0.597f,  0.770f,  0.761f,
-    0.559f,  0.436f,  0.730f,
-    0.359f,  0.583f,  0.152f,
-    0.483f,  0.596f,  0.789f,
-    0.559f,  0.861f,  0.639f,
-    0.195f,  0.548f,  0.859f,
-    0.014f,  0.184f,  0.576f,
-    0.771f,  0.328f,  0.970f,
-    0.406f,  0.615f,  0.116f,
-    0.676f,  0.977f,  0.133f,
-    0.971f,  0.572f,  0.833f,
-    0.140f,  0.616f,  0.489f,
-    0.997f,  0.513f,  0.064f,
-    0.945f,  0.719f,  0.592f,
-    0.543f,  0.021f,  0.978f,
-    0.279f,  0.317f,  0.505f,
-    0.167f,  0.620f,  0.077f,
-    0.347f,  0.857f,  0.137f,
-    0.055f,  0.953f,  0.042f,
-    0.714f,  0.505f,  0.345f,
-    0.783f,  0.290f,  0.734f,
-    0.722f,  0.645f,  0.174f,
-    0.302f,  0.455f,  0.848f,
-    0.225f,  0.587f,  0.040f,
-    0.517f,  0.713f,  0.338f,
-    0.053f,  0.959f,  0.120f,
-    0.393f,  0.621f,  0.362f,
-    0.673f,  0.211f,  0.457f,
-    0.820f,  0.883f,  0.371f,
-    0.982f,  0.099f,  0.879f
-};
-    mat4 projection, view, model, model_tri ;
-    model = mat4(1.0f) ; // Id4 because the center of the model is the center of the screen
-    view = lookAt(vec3(4,-3,-3), vec3(0,0,0), vec3(0,1,0)) ;
-    projection = glm::perspective(radians (45.0f), 4.0f/3.0f, 0.10f, 100.0f) ;
-    mat4 MVPmatrix = projection * view * model ;
-    GLuint matrixID = glGetUniformLocation  (programID, "MVP") ; //tell GLSL the location of MVP
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    mat4 projection, view, model ;
+    projection = perspective(radians (120.0f), 1024.0f/768.0f, 0.10f, 100.0f) ;
+    //projection = ortho (4.0f, -4.0f, -5.0f, 5.0f, 0.1f, 100.0f) ;
+    GLuint projID = glGetUniformLocation  (programID, "projection") ; //tell GLSL the location of MVP
+    GLuint viewID = glGetUniformLocation  (programID, "view") ;
+    GLuint modelID = glGetUniformLocation  (programID, "model") ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     GLuint vaoID ;
-    GLuint *vboID = (GLuint*) malloc (sizeof (GLuint)*2);
+    GLuint vboID ;
      //create VAO which contains every information about the location and state of the VBO in VRAM
     glGenVertexArrays(1,&vaoID) ;
     glBindVertexArray (vaoID) ;
     // create VBO which allocate space in the VRAM
-    glGenBuffers (2, vboID) ;
+    glGenBuffers (1, &vboID) ;
     // unlock it
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID) ;
     // fill the space in VRAM with the vertex
-    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STATIC_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof (g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
+    glEnableVertexAttribArray(0) ;
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) 0 ) ;
+    glEnableVertexAttribArray (1) ;
+    glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) (3*sizeof(float))) ;
+    GLuint textureID = loadTexture() ;
+    GLuint textureSampler = glGetUniformLocation (programID, "textSampler") ;
+    GLFWkeyfun keyFunc = &keyboard ;
+    glfwSetKeyCallback(window, keyFunc) ;
+    GLFWcursorposfun cursorFunc = mouseCallback ;
+    glfwSetCursorPosCallback(window, cursorFunc) ;
     glEnable (GL_DEPTH_TEST) ;
+    float lastFrame = 0.0f ;
     do {
+        float currentFrame = glfwGetTime() ;
+        deltaTime = currentFrame - lastFrame ;
+        lastFrame = currentFrame ;
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
         glUseProgram (programID) ; // use the shader
-        glUniformMatrix4fv (matrixID, 1, GL_FALSE, &MVPmatrix[0][0]) ; // the value of MVPmatrix to GLSL
-        glEnableVertexAttribArray (1) ;
-        glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-        glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0) ;
-        glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
-        glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ; // unlock buffer twice ?
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*) 0) ; // tells how the data should be read
-        glDrawArrays(GL_TRIANGLES, 0 , 12*3) ; //render the data
-        glDisableVertexAttribArray (0) ;
-        glDisableVertexAttribArray (1) ;
+        float camX, camZ ;
+        //camX= sin(glfwGetTime())*10 ;
+        //camZ= cos(glfwGetTime())*10 ;
+        view = lookAt(cameraPos, cameraPos + cameraFront, cameraUp) ;
+        glUniformMatrix4fv (projID, 1, GL_FALSE, &projection[0][0]) ;
+        glUniformMatrix4fv (viewID, 1, GL_FALSE, &view[0][0]) ;
+        glActiveTexture(GL_TEXTURE0) ;
+        glBindTexture(GL_TEXTURE_2D, textureID) ;
+        glUniform1i (textureSampler, 0) ;
+        for (int i = 0 ; i < 10 ; i++) {
+                model = translate(mat4(1.0f),cubePositions[i]) ;
+                //float angle = glfwGetTime()*20 ;
+                //model = rotate(model, angle, vec3(1,1,1)) ;
+                glUniformMatrix4fv (modelID, 1, GL_FALSE, &model[0][0]) ;
+                glDrawArrays(GL_TRIANGLES, 0 , 12*3) ; //render the data
+        }
         glfwSwapBuffers(window) ;
         glfwPollEvents() ; // process events already in the event queue
         //getKey uses qwerty keyboard
     } while (closeWindow(window) == 0)  ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    glDisableVertexAttribArray (0) ;
+    glDisableVertexAttribArray (1) ;
     glDeleteVertexArrays (1, &vaoID) ;
-    glDeleteBuffers (1, vboID) ;
+    glDeleteBuffers (1, &vboID) ;
     glDeleteProgram (programID) ;
     return 0;
 }

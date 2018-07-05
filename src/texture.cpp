@@ -149,7 +149,7 @@ void cursorMove (GLFWwindow* window, double xpos, double ypos) {
     GLuint contrast = glGetUniformLocation(programID, "contr") ;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         // brightness 0 at the middle -1 at left corner and 1 at right corner
-        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2) ;
+        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/(HEIGHT_INIT/2)) ;
         // contrast 0 at the left corner 1 at the middle and 2 at the right corner
         glUniform1f (contrast, (float) xpos/(WIDTH_INIT/2)) ;
     }
@@ -170,11 +170,13 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods) {
         glUniform1f (contrast, 1.0f) ;
     } else if ((button == GLFW_MOUSE_BUTTON_LEFT) && (action == GLFW_PRESS)) {
         glfwGetCursorPos(window, &xpos, &ypos) ;
-        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2) ;
+        glUniform1f (brightness, (float) ((ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2)) ;
+        // brightness 0 at the middle -1 at left corner and 1 at right corner
         glUniform1f (contrast, xpos/(WIDTH_INIT/2)) ;
+        // contrast 0 at the left corner 1 at the middle and 2 at the right corner
     }
 }
-
+/*
 void windowPosition (GLFWwindow* window, int width, int height) {
     GLint programID ;
     glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
@@ -183,7 +185,7 @@ void windowPosition (GLFWwindow* window, int width, int height) {
     glUniform1i (uWidth, width/WIDTH_INIT) ;
     glUniform1i (uHeight, height/HEIGHT_INIT) ;
 
-}
+}*/
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
@@ -216,7 +218,11 @@ int main()
         GLuint vaoID ;
         GLuint *vboID =  (GLuint*) malloc (2*sizeof(GLuint));
          //create VAO which contains every information about the location and state of the VBO in VRAM
-        glGenVertexArrays(1,&vaoID) ;
+        glGenVevec3 frontDirection ;
+        frontDirection.x = cos (radians(pitch)) * cos(radians(yaw)) ;
+        frontDirection.y = sin(radians(pitch)) ;
+        frontDirection.z = cos(radians(pitch)) * sin(radians(yaw)) ;
+        cameraFront = normalize(frontDirection) ;rtexArrays(1,&vaoID) ;
         glBindVertexArray (vaoID) ;
         // create VBO which allocate space in the VRAM
         glGenBuffers (2, vboID) ;
@@ -228,39 +234,46 @@ int main()
         glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
         glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+        //load texture data and vertex into the GPU
         GLuint lutID = loadLUT(g_lut_texture_data) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         GLuint textureID = loadTexture() ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+        //Create LUT and texture from file
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         GLuint matProj = glGetUniformLocation (programID, "projection") ;
+        //Generate uniform variable location
         GLFWcursorposfun callbackCursor = &cursorMove ;
         glfwSetCursorPosCallback(window, callbackCursor) ;
         GLFWmousebuttonfun callbackMouse = &mouseButton ;
         glfwSetMouseButtonCallback(window, callbackMouse) ;
+        //Callback function
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (programID) ; // use the shader
+
             glActiveTexture(GL_TEXTURE0) ;
             glBindTexture(GL_TEXTURE_2D, textureID) ;
             glUniform1i (textureSampler, 0) ;
+            //give texture sampler to fragment shader
             glActiveTexture(GL_TEXTURE1) ;
             glBindTexture(GL_TEXTURE_1D, lutID) ;
             glUniform1i (lutSampler, 0) ;
-            // brightness 0 at the middle -1 at left corner and 1 at right corner
-            //glUniform1f (brightness, (float) (ypos-384)/384) ;
-            // contrast 0 at the left corner 1 at the middle and 2 at the right corner
-            //glUniform1f (contrast, (float) xpos/612) ;
+            //give lut sampler to fragment shader
             glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
+            // load projection matrix into the vertex shader
             glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
             glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
+            // send the vertices to the vertex shader
             glEnableVertexAttribArray (1) ;
             glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
             glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
+            // send the texture coordinate to the vertex shader which passes it to the fragment shader
             glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
+            //draw the figure
             glDisableVertexAttribArray (0) ;
             glDisableVertexAttribArray (1) ;
             glfwSwapBuffers(window) ;
