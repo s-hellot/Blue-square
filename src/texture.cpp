@@ -194,19 +194,17 @@ int main()
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
     GLuint programID = LoadShaders("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
-    mat4 projection ;
-    projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
     if (programID == 0 ) {
             cout << "error loading shader" << endl ;
             return 0 ;
     } else {
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        float vertex [] = { -0.5, -0.5, 0,
-                            -0.5,  0.5, 0,
-                             0.5, -0.5, 0,
-                            -0.5,  0.5, 0,
-                             0.5, -0.5, 0,
-                             0.5,  0.5, 0 } ;
+        float vertex [] = { -1, -1, 0,
+                            -1,  1, 0,
+                             1, -1, 0,
+                            -1,  1, 0,
+                             1, -1, 0,
+                             1,  1, 0 } ;
         float textureCoord [] = {
                              0.0f, 1.0f,
                              0.0f, 0.0f,
@@ -218,11 +216,7 @@ int main()
         GLuint vaoID ;
         GLuint *vboID =  (GLuint*) malloc (2*sizeof(GLuint));
          //create VAO which contains every information about the location and state of the VBO in VRAM
-        glGenVevec3 frontDirection ;
-        frontDirection.x = cos (radians(pitch)) * cos(radians(yaw)) ;
-        frontDirection.y = sin(radians(pitch)) ;
-        frontDirection.z = cos(radians(pitch)) * sin(radians(yaw)) ;
-        cameraFront = normalize(frontDirection) ;rtexArrays(1,&vaoID) ;
+        glGenVertexArrays(1,&vaoID) ;
         glBindVertexArray (vaoID) ;
         // create VBO which allocate space in the VRAM
         glGenBuffers (2, vboID) ;
@@ -243,12 +237,19 @@ int main()
         GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
         GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
         GLuint matProj = glGetUniformLocation (programID, "projection") ;
+        GLuint viewportID = glGetUniformLocation (programID, "viewport") ;
         //Generate uniform variable location
         GLFWcursorposfun callbackCursor = &cursorMove ;
         glfwSetCursorPosCallback(window, callbackCursor) ;
         GLFWmousebuttonfun callbackMouse = &mouseButton ;
         glfwSetMouseButtonCallback(window, callbackMouse) ;
         //Callback function
+        mat4 projection, viewportScale, viewportTranslate, viewport ;
+        projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
+        viewportScale = mat4 (vec4 (0.5, 0, 0, 0), vec4 (0, 0.5, 0, 0), vec4 (0, 0, 0.5, 0), vec4 (0, 0, 0, 1)) ;
+        // vector applied to column first vector = first column
+        viewportTranslate = mat4 (vec4 (1, 0, 0, 0), vec4 (0, 1, 0, 0), vec4 (0, 0, 1, 0), vec4 (-0.5, 0.5, 0, 1)) ;
+        viewport =  viewportTranslate * viewportScale ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
@@ -263,6 +264,7 @@ int main()
             glUniform1i (lutSampler, 0) ;
             //give lut sampler to fragment shader
             glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
+            glUniformMatrix4fv (viewportID, 1, GL_FALSE, &viewport[0][0]) ;
             // load projection matrix into the vertex shader
             glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
             glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
