@@ -11,7 +11,6 @@
 #include <glm/glm.hpp>
 using namespac glm ;
 */
-
 #include <shader.hpp>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -26,15 +25,18 @@ using namespac glm ;
 using namespace glm ;
 
 //#include "checker.c"
-#define WIDTH_INIT 1024
-#define HEIGHT_INIT 768
+#define WIDTH_INIT 800.0
+#define HEIGHT_INIT 600.0
+#define RATIO_INIT (WIDTH_INIT/HEIGHT_INIT)
 using namespace std;
 
 // cmake rule to copy only modified shader file
 
+void windowSize (GLFWwindow* window, int width, int height) ;
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
-        fprintf (stderr, "Failed to initialize GLFW\n") ;
+        cerr << "Failed to initialize GLFW\n" << endl ;
+        exit(EXIT_FAILURE) ;
     }
     glfwWindowHint(GLFW_SAMPLES, 4); // 4x antialiasing
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.2
@@ -46,10 +48,12 @@ GLFWwindow* initGlfwAndWindow () {
     GLFWwindow* window ;
     window = glfwCreateWindow (WIDTH_INIT, HEIGHT_INIT, "First Window", NULL, NULL ) ;
     if (window == NULL) {
-        fprintf (stderr, "Failed to open GLFW window\n") ;
+        cerr << "Failed to open GLFW window \n" << endl ;
         glfwTerminate() ;
+        exit (EXIT_FAILURE) ;
     }
     glfwMakeContextCurrent(window) ; // current on the calling thread
+    windowSize(window, WIDTH_INIT, HEIGHT_INIT) ;
     return window ;
 }
 
@@ -177,13 +181,23 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods) {
     }
 }
 
-void windowPosition (GLFWwindow* window, int width, int height) {
-    glViewport (0, height/2, width/2, height/2) ;
+void windowSize (GLFWwindow* window, int width, int height) {
+    float ratioWindow = ((float) width)/height ;
+    if (ratioWindow > RATIO_INIT) {
+    // too wide
+        width = RATIO_INIT * height ;
+        cout <<  "width : " << width << "height : " << height <<  "ratio init : " << ((float) width)/height << endl ;
+    } else if (ratioWindow < RATIO_INIT) {
+        height = width / RATIO_INIT  ;
+        cout <<  "width : " << width << "height : " << height << "ratio init : " << ((float) width)/height << endl ;
+    }
+    glViewport (0, 0, width, height) ;
 }
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
+    //initGL();
     // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
@@ -237,7 +251,7 @@ int main()
         glfwSetCursorPosCallback(window, callbackCursor) ;
         GLFWmousebuttonfun callbackMouse = &mouseButton ;
         glfwSetMouseButtonCallback(window, callbackMouse) ;
-        GLFWwindowsizefun sizeFunc = &windowPosition ;
+        GLFWwindowsizefun sizeFunc = &windowSize ;
         glfwSetWindowSizeCallback(window, sizeFunc) ;
         //Callback function
         mat4 projection, viewportScale, viewportTranslate, viewport ;
