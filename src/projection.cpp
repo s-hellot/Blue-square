@@ -179,15 +179,127 @@ void scroll_callback (GLFWwindow* window, double xoffset, double yoffset) {
     fov = (fov > 45)? 45 : fov ;
     fov = (fov <  1)? 1  : fov ;
 }
+
+GLuint loadShader (char* vertexShader, char* fragmentShader) {
+    GLuint programID = LoadShaders(vertexShader, fragmentShader) ;
+    if (programID == 0 ) {
+            cout << "Error loading shader" << endl ;
+            exit(EXIT_FAILURE) ;
+    }
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    return programID ;
+}
+
+
+GLuint loadAndBindVAO () {
+    GLuint vaoID ;
+    //create VAO which contains every information about the location and state of the VBO in VRAM
+    glGenVertexArrays(1,&vaoID) ;
+    glBindVertexArray (vaoID) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    return vaoID ;
+}
+
+//not used
+GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
+    GLuint *vboID =  new GLuint[2];
+    // create VBO which allocate space in the VRAM
+    glGenBuffers (2, vboID) ;
+    // unlock it
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    return vboID ;
+}
+
+void generateUniformVariable (GLuint programID, GLuint* textureSampler, GLuint* projID, GLuint* viewID, GLuint* modelID) {
+    *projID = glGetUniformLocation  (programID, "projection") ;
+    *viewID = glGetUniformLocation  (programID, "view") ;
+    *modelID = glGetUniformLocation  (programID, "model") ;
+    *textureSampler = glGetUniformLocation (programID, "textSampler") ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+}
+
+void setGLFWCallbackFunction (GLFWwindow* window) {
+    GLFWkeyfun keyFunc = &keyboard ;
+    glfwSetKeyCallback(window, keyFunc) ;
+    GLFWcursorposfun cursorFunc = mouseCallback ;
+    glfwSetCursorPosCallback(window, cursorFunc) ;
+    GLFWscrollfun scrollFunc = scroll_callback ;
+    glfwSetScrollCallback(window, scrollFunc) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+}
+
+void loadSampler (GLuint textureID, GLuint textureSampler) {
+        glActiveTexture(GL_TEXTURE0) ;
+        glBindTexture(GL_TEXTURE_2D, textureID) ;
+        glUniform1i (textureSampler, 0) ;
+        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+}
+
+
+void loadDataToShader (GLuint vboID) {
+    glBindBuffer (GL_ARRAY_BUFFER, vboID) ;
+    glEnableVertexAttribArray(0) ;
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) 0 ) ;
+    glEnableVertexAttribArray (1) ;
+    glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) (3*sizeof(float))) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+}
+
+void disableData () {
+    glDisableVertexAttribArray (0) ;
+    glDisableVertexAttribArray (1) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+}
+
+void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint textureID) {
+    glDisableVertexAttribArray (0) ;
+    glDisableVertexAttribArray (1) ;
+    glDeleteVertexArrays (1, &vaoID) ;
+    glDeleteBuffers (1, vboID) ;
+    glDeleteTextures(1, &textureID) ;
+    glDeleteProgram (programID) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+}
+
+void loadUniformMatrix (GLuint projID, GLuint viewID) {
+        mat4 projection, view ;
+        view = lookAt(cameraPos, cameraPos + cameraFront, cameraUp) ;
+        projection = perspective(radians (fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
+        glUniformMatrix4fv (projID, 1, GL_FALSE, &projection[0][0]) ;
+        glUniformMatrix4fv (viewID, 1, GL_FALSE, &view[0][0]) ;
+        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+}
+
+void drawCubes (vec3* cubePositions, GLuint modelID) {
+    for (int i = 0 ; i < 10 ; i++) {
+            mat4 model = translate(mat4(1.0f),cubePositions[i]) ;
+            //float angle = glfwGetTime()*20 ;
+            //model = rotate(model, angle, vec3(1,1,1)) ;
+            glUniformMatrix4fv (modelID, 1, GL_FALSE, &model[0][0]) ;
+            glDrawArrays(GL_TRIANGLES, 0 , 12*3) ; //render the data
+    }
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
+}
+
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
-    // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
+
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glClearColor(0,255,0,0) ;
-    GLuint programID = LoadShaders("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
+
+    GLuint programID = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
     float vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
          0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
@@ -243,73 +355,45 @@ int main()
   vec3( 1.5f,  0.2f, -1.5f),
   vec3(-1.3f,  1.0f, -1.5f)
 };
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    mat4 projection, view, model ;
-    //projection = perspective(radians (45.0f), 1024.0f/768.0f, 0.10f, 100.0f) ;
-    //projection = ortho (4.0f, -4.0f, -5.0f, 5.0f, 0.1f, 100.0f) ;
-    GLuint projID = glGetUniformLocation  (programID, "projection") ; //tell GLSL the location of MVP
-    GLuint viewID = glGetUniformLocation  (programID, "view") ;
-    GLuint modelID = glGetUniformLocation  (programID, "model") ;
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    GLuint vaoID ;
+    GLuint projID, viewID, modelID, textureSampler ;
+    generateUniformVariable (programID, &textureSampler, &projID, &viewID, &modelID) ;
+
+
+    GLuint vaoID  = loadAndBindVAO();
+
     GLuint vboID ;
-     //create VAO which contains every information about the location and state of the VBO in VRAM
-    glGenVertexArrays(1,&vaoID) ;
-    glBindVertexArray (vaoID) ;
-    // create VBO which allocate space in the VRAM
     glGenBuffers (1, &vboID) ;
-    // unlock it
     glBindBuffer (GL_ARRAY_BUFFER, vboID) ;
-    // fill the space in VRAM with the vertex
     glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
-    glEnableVertexAttribArray(0) ;
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) 0 ) ;
-    glEnableVertexAttribArray (1) ;
-    glVertexAttribPointer (1, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) (3*sizeof(float))) ;
+
+    loadDataToShader(vboID) ;
+
     GLuint textureID = loadTexture() ;
-    GLuint textureSampler = glGetUniformLocation (programID, "textSampler") ;
-    GLFWkeyfun keyFunc = &keyboard ;
-    glfwSetKeyCallback(window, keyFunc) ;
-    GLFWcursorposfun cursorFunc = mouseCallback ;
-    glfwSetCursorPosCallback(window, cursorFunc) ;
-    GLFWscrollfun scrollFunc = scroll_callback ;
-    glfwSetScrollCallback(window, scrollFunc) ;
+
+    setGLFWCallbackFunction (window) ;
+
     glEnable (GL_DEPTH_TEST) ;
     float lastFrame = 0.0f ;
     do {
         float currentFrame = glfwGetTime() ;
         deltaTime = currentFrame - lastFrame ;
         lastFrame = currentFrame ;
+
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
         glUseProgram (programID) ; // use the shader
-        float camX, camZ ;
-        //camX= sin(glfwGetTime())*10 ;
-        //camZ= cos(glfwGetTime())*10 ;
-        view = lookAt(cameraPos, cameraPos + cameraFront, cameraUp) ;
-        projection = perspective(radians (fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
-        glUniformMatrix4fv (projID, 1, GL_FALSE, &projection[0][0]) ;
-        glUniformMatrix4fv (viewID, 1, GL_FALSE, &view[0][0]) ;
-        glActiveTexture(GL_TEXTURE0) ;
-        glBindTexture(GL_TEXTURE_2D, textureID) ;
-        glUniform1i (textureSampler, 0) ;
-        for (int i = 0 ; i < 10 ; i++) {
-                model = translate(mat4(1.0f),cubePositions[i]) ;
-                //float angle = glfwGetTime()*20 ;
-                //model = rotate(model, angle, vec3(1,1,1)) ;
-                glUniformMatrix4fv (modelID, 1, GL_FALSE, &model[0][0]) ;
-                glDrawArrays(GL_TRIANGLES, 0 , 12*3) ; //render the data
-        }
+
+        loadUniformMatrix(projID, viewID) ;
+
+        loadSampler(textureID, textureSampler) ;
+
+        drawCubes (cubePositions, modelID) ;
+
         glfwSwapBuffers(window) ;
         glfwPollEvents() ; // process events already in the event queue
         //getKey uses qwerty keyboard
     } while (closeWindow(window) == 0)  ;
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glDisableVertexAttribArray (0) ;
-    glDisableVertexAttribArray (1) ;
-    glDeleteVertexArrays (1, &vaoID) ;
-    glDeleteBuffers (1, &vboID) ;
-    glDeleteProgram (programID) ;
+    disableData() ;
+    deleteMemory(programID, vaoID, &vboID, textureID) ;
     return 0;
 }

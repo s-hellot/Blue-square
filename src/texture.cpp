@@ -193,11 +193,12 @@ void windowSize (GLFWwindow* window, int width, int height) {
 }
 
 GLuint loadShader (char* vertexShader, char* fragmentShader) {
-    GLuint programID = LoadShaders("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+    GLuint programID = LoadShaders(vertexshader, fragmentshader) ;
     if (programID == 0 ) {
             cout << "Error loading shader" << endl ;
             exit(EXIT_FAILURE) ;
     }
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     return programID ;
 }
 
@@ -211,6 +212,7 @@ float* loadTextureCoord () {
         1.0f, 1.0f,
         1.0f, 0.0f
     };
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     return textureCoord ;
 }
 
@@ -219,6 +221,7 @@ GLuint loadAndBindVAO () {
     //create VAO which contains every information about the location and state of the VBO in VRAM
     glGenVertexArrays(1,&vaoID) ;
     glBindVertexArray (vaoID) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     return vaoID ;
 }
 
@@ -231,6 +234,7 @@ GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
     glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
     glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
     glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     return vboID ;
 }
 
@@ -238,6 +242,7 @@ void generateUniformVariable (GLuint programID, GLuint* textureSampler, GLuint* 
     *textureSampler = glGetUniformLocation (programID, "myTextureSampler") ;
     *lutSampler     = glGetUniformLocation (programID, "myLutSampler") ;
     *matProj        = glGetUniformLocation (programID, "projection") ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void setGLFWCallbackFunction (GLFWwindow* window) {
@@ -247,6 +252,7 @@ void setGLFWCallbackFunction (GLFWwindow* window) {
     glfwSetMouseButtonCallback(window, callbackMouse) ;
     GLFWwindowsizefun sizeFunc = &windowSize ;
     glfwSetWindowSizeCallback(window, sizeFunc) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void loadSampler (GLuint textureID, GLuint textureSampler, GLuint lutID, GLuint lutSampler) {
@@ -256,6 +262,7 @@ void loadSampler (GLuint textureID, GLuint textureSampler, GLuint lutID, GLuint 
     glActiveTexture(GL_TEXTURE1) ;
     glBindTexture(GL_TEXTURE_1D, lutID) ;
     glUniform1i (lutSampler, 0) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 
@@ -267,11 +274,13 @@ void loadDataToShader (GLuint* vboID) {
     glEnableVertexAttribArray (1) ;
     glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void disableData () {
     glDisableVertexAttribArray (0) ;
-    glDisableVertexAttribArray (1) ;
+    glDisableVertexAttribArray (1)
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint textureID, GLuint lutID) {
@@ -280,6 +289,7 @@ void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint texture
     glDeleteProgram (programID) ;
     glDeleteTextures(1, &textureID) ;
     glDeleteTextures(1, &lutID) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 int main()
 {
