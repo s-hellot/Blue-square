@@ -186,10 +186,8 @@ void windowSize (GLFWwindow* window, int width, int height) {
     if (ratioWindow > RATIO_INIT) {
     // too wide
         width = RATIO_INIT * height ;
-        cout <<  "width : " << width << "height : " << height <<  "ratio init : " << ((float) width)/height << endl ;
     } else if (ratioWindow < RATIO_INIT) {
         height = width / RATIO_INIT  ;
-        cout <<  "width : " << width << "height : " << height << "ratio init : " << ((float) width)/height << endl ;
     }
     glViewport (0, 0, width, height) ;
 }
