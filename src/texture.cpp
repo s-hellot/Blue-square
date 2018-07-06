@@ -191,113 +191,156 @@ void windowSize (GLFWwindow* window, int width, int height) {
     }
     glViewport (0, 0, width, height) ;
 }
+
+GLuint loadShader (char* vertexShader, char* fragmentShader) {
+    GLuint programID = LoadShaders("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+    if (programID == 0 ) {
+            cout << "Error loading shader" << endl ;
+            exit(EXIT_FAILURE) ;
+    }
+    return programID ;
+}
+
+
+float* loadTextureCoord () {
+    float textureCoord [12] = {
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f
+    };
+    return textureCoord ;
+}
+
+GLuint loadAndBindVAO () {
+    GLuint vaoID ;
+    //create VAO which contains every information about the location and state of the VBO in VRAM
+    glGenVertexArrays(1,&vaoID) ;
+    glBindVertexArray (vaoID) ;
+    return vaoID ;
+}
+
+GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
+    GLuint *vboID =  new GLuint[2];
+    // create VBO which allocate space in the VRAM
+    glGenBuffers (2, vboID) ;
+    // unlock it
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    return vboID ;
+}
+
+void generateUniformVariable (GLuint programID, GLuint* textureSampler, GLuint* lutSampler, GLuint* matProj) {
+    *textureSampler = glGetUniformLocation (programID, "myTextureSampler") ;
+    *lutSampler     = glGetUniformLocation (programID, "myLutSampler") ;
+    *matProj        = glGetUniformLocation (programID, "projection") ;
+}
+
+void setGLFWCallbackFunction (GLFWwindow* window) {
+    GLFWcursorposfun callbackCursor = &cursorMove ;
+    glfwSetCursorPosCallback(window, callbackCursor) ;
+    GLFWmousebuttonfun callbackMouse = &mouseButton ;
+    glfwSetMouseButtonCallback(window, callbackMouse) ;
+    GLFWwindowsizefun sizeFunc = &windowSize ;
+    glfwSetWindowSizeCallback(window, sizeFunc) ;
+}
+
+void loadSampler (GLuint textureID, GLuint textureSampler, GLuint lutID, GLuint lutSampler) {
+    glActiveTexture(GL_TEXTURE0) ;
+    glBindTexture(GL_TEXTURE_2D, textureID) ;
+    glUniform1i (textureSampler, 0) ;
+    glActiveTexture(GL_TEXTURE1) ;
+    glBindTexture(GL_TEXTURE_1D, lutID) ;
+    glUniform1i (lutSampler, 0) ;
+}
+
+
+void loadDataToShader (GLuint* vboID) {
+    glEnableVertexAttribArray (0) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
+    // send the vertices to the vertex shader
+    glEnableVertexAttribArray (1) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
+}
+
+void disableData () {
+    glDisableVertexAttribArray (0) ;
+    glDisableVertexAttribArray (1) ;
+}
+
+void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint textureID, GLuint lutID) {
+    glDeleteVertexArrays (1, &vaoID) ;
+    glDeleteBuffers (2, vboID) ;
+    glDeleteProgram (programID) ;
+    glDeleteTextures(1, &textureID) ;
+    glDeleteTextures(1, &lutID) ;
+}
 int main()
 {
     GLFWwindow* window = initGlfwAndWindow() ;
     initGlew() ;
-    //initGL();
-    // STICKY KEYS : if you press a key and release it, GFLW_PRESS will be true even after release
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
-    GLuint programID = LoadShaders("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
-    if (programID == 0 ) {
-            cout << "error loading shader" << endl ;
-            return 0 ;
-    } else {
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        float vertex [] = { -1, -1, 0,
-                            -1,  1, 0,
-                             1, -1, 0,
-                            -1,  1, 0,
-                             1, -1, 0,
-                             1,  1, 0 } ;
-        float textureCoord [] = {
+    GLuint programID = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+
+    float vertex []= { -1, -1, 0,
+                      -1,  1, 0,
+                       1, -1, 0,
+                      -1,  1, 0,
+                       1, -1, 0,
+                       1,  1, 0 } ;
+    float textureCoord [] = {
                              0.0f, 1.0f,
                              0.0f, 0.0f,
                              1.0f, 1.0f,
                              0.0f, 0.0f,
                              1.0f, 1.0f,
                              1.0f, 0.0f
-        } ;
-        GLuint vaoID ;
-        GLuint *vboID =  (GLuint*) malloc (2*sizeof(GLuint));
-         //create VAO which contains every information about the location and state of the VBO in VRAM
-        glGenVertexArrays(1,&vaoID) ;
-        glBindVertexArray (vaoID) ;
-        // create VBO which allocate space in the VRAM
-        glGenBuffers (2, vboID) ;
-        // unlock it
-        glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
-        // fill the space in VRAM with the vertex
-        glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-        glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        //load texture data and vertex into the GPU
-        GLuint lutID = loadLUT(g_lut_texture_data) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        GLuint textureID = loadTexture() ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        //Create LUT and texture from file
-        GLuint textureSampler = glGetUniformLocation (programID, "myTextureSampler") ; //allocate the memory for uniform variable myTextureSample
-        GLuint lutSampler = glGetUniformLocation (programID, "myLutSampler") ;
-        GLuint matProj = glGetUniformLocation (programID, "projection") ;
-        GLuint viewportID = glGetUniformLocation (programID, "viewport") ;
-        //Generate uniform variable location
-        GLFWcursorposfun callbackCursor = &cursorMove ;
-        glfwSetCursorPosCallback(window, callbackCursor) ;
-        GLFWmousebuttonfun callbackMouse = &mouseButton ;
-        glfwSetMouseButtonCallback(window, callbackMouse) ;
-        GLFWwindowsizefun sizeFunc = &windowSize ;
-        glfwSetWindowSizeCallback(window, sizeFunc) ;
-        //Callback function
-        mat4 projection, viewportScale, viewportTranslate, viewport ;
-        projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
-        /*viewportScale = mat4 (vec4 (0.5, 0, 0, 0), vec4 (0, 0.5, 0, 0), vec4 (0, 0, 0.5, 0), vec4 (0, 0, 0, 1)) ;
-        // vector applied to column first vector = first column
-        viewportTranslate = mat4 (vec4 (1, 0, 0, 0), vec4 (0, 1, 0, 0), vec4 (0, 0, 1, 0), vec4 (-0.5, 0.5, 0, 1)) ;
-        viewport =  viewportTranslate * viewportScale ;*/
-        viewport = mat4(1.0f) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-        do {
-            glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
-            glUseProgram (programID) ; // use the shader
+    } ;
 
-            glActiveTexture(GL_TEXTURE0) ;
-            glBindTexture(GL_TEXTURE_2D, textureID) ;
-            glUniform1i (textureSampler, 0) ;
-            //give texture sampler to fragment shader
-            glActiveTexture(GL_TEXTURE1) ;
-            glBindTexture(GL_TEXTURE_1D, lutID) ;
-            glUniform1i (lutSampler, 0) ;
-            //give lut sampler to fragment shader
-            glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
-            glUniformMatrix4fv (viewportID, 1, GL_FALSE, &viewport[0][0]) ;
-            // load projection matrix into the vertex shader
-            glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
-            glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
-            // send the vertices to the vertex shader
-            glEnableVertexAttribArray (1) ;
-            glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
-            // send the texture coordinate to the vertex shader which passes it to the fragment shader
-            glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
-            //draw the figure
-            glDisableVertexAttribArray (0) ;
-            glDisableVertexAttribArray (1) ;
-            glfwSwapBuffers(window) ;
-            glfwPollEvents() ; // process events already in the event queue
-            //checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-            //getKey uses qwerty keyboard
-        } while (closeWindow(window) == 0)  ;
-        glDeleteVertexArrays (1, &vaoID) ;
-        glDeleteBuffers (2, vboID) ;
-        glDeleteProgram (programID) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-       // glDeleteTextures(1, &textureID) ;
-    }
-    return 0;
+    GLuint vaoID = loadAndBindVAO();
+
+    GLuint *vboID =  new GLuint [2] ;
+    glGenBuffers (2, vboID) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    //load texture data and vertex into the GPU
+
+    GLuint lutID = loadLUT(g_lut_texture_data) ;
+    GLuint textureID = loadTexture() ;
+    //Create LUT and texture from file
+
+    GLuint textureSampler, lutSampler, matProj ;
+    generateUniformVariable(programID, &textureSampler, &lutSampler, &matProj) ;
+    //Generate uniform variable location*/
+
+    setGLFWCallbackFunction(window) ;
+
+    mat4 projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
+    do {
+        glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
+        glUseProgram (programID) ; // use the shader
+
+        loadSampler (textureID, textureSampler, lutID, lutSampler) ;
+        glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
+        // load projection matrix into the vertex shader
+
+        loadDataToShader (vboID) ;
+        glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
+        disableData() ;
+
+        glfwSwapBuffers(window) ;
+        glfwPollEvents() ;
+    } while (closeWindow(window) == 0)  ;
+    deleteMemory (programID, vaoID, vboID, textureID, lutID) ;
 }
+
 
