@@ -7,31 +7,32 @@
 #include <GL/gl.h>
 // GLFW : handle window and keyboard
 #include <GLFW/glfw3.h>
-/* GLM is used for 3D mathematics
-#include <glm/glm.hpp>
-using namespac glm ;
-*/
 
 #include <shader.hpp>
+#include <Viewport.hpp>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "cloud.h"
 using namespace glm ;
 
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH_INIT 800.0
+#define HEIGHT_INIT 600.0
+#define RATIO_INIT (WIDTH_INIT/HEIGHT_INIT)
 using namespace std;
 
-vec3 cameraPos = vec3 (0.0f, 0.0f, 6.0f) ;
-vec3 cameraFront = vec3 (0.0f, 0.0f, -1.0f) ;
-vec3 cameraUp = vec3 (0.0f, 1.0f, 0.0f) ;
-float deltaTime = 0.0f ;
-bool firstMouse = false ;
+vec3 g_camera_pos = vec3 (0.0f, 0.0f, 6.0f) ;
+vec3 g_camera_front = vec3 (0.0f, 0.0f, -1.0f) ;
+vec3 g_camera_up = vec3 (0.0f, 1.0f, 0.0f) ;
+float g_delta_time = 0.0f ;
+bool g_first_mouse_click = false ;
 // true if it isn't the first time the mouse appears on the screen
-float lastX, lastY ;
-float pitch = 0, yaw = -90 ;
+float g_last_x, g_last_y ;
+float g_pitch = 0, g_yaw = -90 ;
 // yaw is init at -90 to remove the jump in x at first mouse input (still exist in z-axis)
-float fov = 45 ;
+float g_fov = 45 ;
+
+void setGLFWCallbackFunction (GLFWwindow* window) ;
+
 
 bool checkGLError(string FILE, string FUNCTION, int LINE) {
     GLenum err = glGetError() ;
@@ -55,9 +56,13 @@ bool checkGLError(string FILE, string FUNCTION, int LINE) {
     return (err !=  GL_NO_ERROR) ;
 }
 
+void initGL () {
+    glClearColor(0,255,0,0) ;
+    glEnable (GL_DEPTH_TEST) ;
+}
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
-        fprintf (stderr, "Failed to initialize GLFW\n") ;
+        cerr << "Failed to initialize GLFW\n" << endl ;
     }
     glfwWindowHint(GLFW_SAMPLES, 4); // 4x antialiasing
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.2
@@ -66,19 +71,23 @@ GLFWwindow* initGlfwAndWindow () {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
 
     GLFWwindow* window ;
-    window = glfwCreateWindow (WIDTH, HEIGHT, "First Window", NULL, NULL ) ;
+    window = glfwCreateWindow (WIDTH_INIT, HEIGHT_INIT, "First Window", NULL, NULL ) ;
     if (window == NULL) {
-        fprintf (stderr, "Failed to open GLFW window\n") ;
+        cerr << "Failed to open GLFW window\n" << endl ;
         glfwTerminate() ;
     }
     glfwMakeContextCurrent(window) ; // current on the calling thread
+
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
+    setGLFWCallbackFunction (window) ;
+
     return window ;
 }
 
 void initGlew () {
     glewExperimental = true ;
     if (glewInit () != GLEW_OK) {
-        fprintf (stderr, "Failed to initialize GLEW\n") ;
+        cerr << "Failed to initialize GLEW\n" << endl ;
     }
 }
 
@@ -102,148 +111,149 @@ GLuint loadTexture () {
         p_data[i] = p_temp[0];
     }
 
-    GLuint textureID ;
-    glGenTextures (1, &textureID) ;
+    GLuint texture_id ;
+    glGenTextures (1, &texture_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glBindTexture (GL_TEXTURE_2D, textureID) ;
+    glBindTexture (GL_TEXTURE_2D, texture_id) ;
     float pixels [] = {
         0.0f, 1.0f,
         1.0f, 0.0f,
     } ;
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glTexImage2D(GL_PROXY_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
     glTexImage2D(GL_TEXTURE_2D,0,GL_RED, g_cloud_texture_width, g_cloud_texture_height, 0, GL_RED, GL_BYTE, p_data) ; // load the image
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); //wrapping mode
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // interpolation mode
 
     delete [] p_data;
-    return textureID ;
+    return texture_id ;
 }
 
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods){
-    float cameraSpeed = 15.0f * deltaTime ;
+    float camera_speed = 15.0f * g_delta_time ;
     switch (key) {
     case GLFW_KEY_W :
-        cameraPos += cameraSpeed * cameraFront ;
+        g_camera_pos += camera_speed * g_camera_front ;
         break ;
     case GLFW_KEY_S :
-        cameraPos -= cameraSpeed * cameraFront ;
+        g_camera_pos -= camera_speed * g_camera_front ;
         break ;
     case GLFW_KEY_A :
-        cameraPos -= normalize(cross (cameraFront, cameraUp))* cameraSpeed ;
+        g_camera_pos -= normalize(cross (g_camera_front, g_camera_up))* camera_speed ;
         break ;
     case GLFW_KEY_D :
-        cameraPos += normalize(cross (cameraFront, cameraUp))* cameraSpeed ;
+        g_camera_pos += normalize(cross (g_camera_front, g_camera_up))* camera_speed ;
         break ;
     }
 }
 
 void mouseCallback (GLFWwindow* window, double xpos, double ypos) {
     float xoffset, yoffset ;
-    if (firstMouse) {
-        lastX = xpos ;
-        lastY = ypos ;
-    } else {
-        xoffset = xpos - lastX ;
-        yoffset = lastY - ypos ;
-        // reversed with Y because y axis is bottom to top on the screen coordinate
-        // but we want to look up when the mouse cursor goes up (camera y-axis is opposite)
-        lastX = xpos ;
-        lastY = ypos ;
-        float sensitivity = 0.05f ;
-        xoffset *= sensitivity ;
-        yoffset *= sensitivity ;
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+        if (g_first_mouse_click) {
+            g_last_x = xpos ;
+            g_last_y = ypos ;
+        } else {
+            xoffset = xpos - g_last_x ;
+            yoffset = g_last_y - ypos ;
+            // reversed with Y because y axis is bottom to top on the screen coordinate
+            // but we want to look up when the mouse cursor goes up (camera y-axis is opposite)
+            g_last_x = xpos ;
+            g_last_y = ypos ;
+            float sensitivity = 0.05f ;
+            xoffset *= sensitivity ;
+            yoffset *= sensitivity ;
 
-        yaw += xoffset ;
-        pitch += yoffset ;
+            g_yaw += xoffset ;
+            g_pitch += yoffset ;
 
-        if (pitch > 89) {
-            pitch = 89 ;
-        } else if (pitch < - 89) {
-            pitch = -89 ;
+            if (g_pitch > 89) {
+               g_pitch = 89 ;
+            } else if (g_pitch < - 89) {
+                g_pitch = -89 ;
+            }
+            // you can only see above and below you not behind you
+            vec3 front_direction ;
+            front_direction.x = cos (radians(g_pitch)) * cos(radians(g_yaw)) ;
+            front_direction.y = sin(radians(g_pitch)) ;
+            front_direction.z = cos(radians(g_pitch)) * sin(radians(g_yaw)) ;
+            g_camera_front = normalize(front_direction) ;
         }
-        // you can only see above and below you not behind you
-        vec3 frontDirection ;
-        frontDirection.x = cos (radians(pitch)) * cos(radians(yaw)) ;
-        frontDirection.y = sin(radians(pitch)) ;
-        frontDirection.z = cos(radians(pitch)) * sin(radians(yaw)) ;
-        cameraFront = normalize(frontDirection) ;
-    }
 }
 
-void scroll_callback (GLFWwindow* window, double xoffset, double yoffset) {
-    fov += yoffset ;
-    fov = (fov > 45)? 45 : fov ;
-    fov = (fov <  1)? 1  : fov ;
+void scrollCallback (GLFWwindow* window, double xoffset, double yoffset) {
+    g_fov += yoffset ;
+    g_fov = (g_fov > 45)? 45 : g_fov ;
+    g_fov = (g_fov <  1)? 1  : g_fov ;
 }
 
-GLuint loadShader (char* vertexShader, char* fragmentShader) {
-    GLuint programID = LoadShaders(vertexShader, fragmentShader) ;
-    if (programID == 0 ) {
-            cout << "Error loading shader" << endl ;
+GLuint loadShader (char* vertex_shader, char* fragment_shader) {
+    GLuint program_id = LoadShaders(vertex_shader, fragment_shader) ;
+    if (program_id == 0 ) {
+            cerr << "Error loading shader" << endl ;
             exit(EXIT_FAILURE) ;
     }
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return programID ;
+    return program_id ;
 }
 
 
 GLuint loadAndBindVAO () {
-    GLuint vaoID ;
+    GLuint vao_id ;
     //create VAO which contains every information about the location and state of the VBO in VRAM
-    glGenVertexArrays(1,&vaoID) ;
-    glBindVertexArray (vaoID) ;
+    glGenVertexArrays(1,&vao_id) ;
+    glBindVertexArray (vao_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return vaoID ;
+    return vao_id ;
 }
 
 //not used
 GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
-    GLuint *vboID =  new GLuint[2];
+    GLuint *vbo_id =  new GLuint[2];
     // create VBO which allocate space in the VRAM
-    glGenBuffers (2, vboID) ;
+    glGenBuffers (2, vbo_id) ;
     // unlock it
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
     glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
     glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return vboID ;
+    return vbo_id ;
 }
 
-void generateUniformVariable (GLuint programID, GLuint* textureSampler, GLuint* projID, GLuint* viewID, GLuint* modelID) {
-    *projID = glGetUniformLocation  (programID, "projection") ;
-    *viewID = glGetUniformLocation  (programID, "view") ;
-    *modelID = glGetUniformLocation  (programID, "model") ;
-    *textureSampler = glGetUniformLocation (programID, "textSampler") ;
+void generateUniformVariable (GLuint program_id, GLuint* texture_sampler, GLuint* proj_id, GLuint* view_id, GLuint* model_id) {
+    *proj_id = glGetUniformLocation  (program_id, "projection") ;
+    *view_id = glGetUniformLocation  (program_id, "view") ;
+    *model_id = glGetUniformLocation  (program_id, "model") ;
+    *texture_sampler = glGetUniformLocation (program_id, "textSampler") ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void setGLFWCallbackFunction (GLFWwindow* window) {
-    GLFWkeyfun keyFunc = &keyboard ;
-    glfwSetKeyCallback(window, keyFunc) ;
-    GLFWcursorposfun cursorFunc = mouseCallback ;
-    glfwSetCursorPosCallback(window, cursorFunc) ;
-    GLFWscrollfun scrollFunc = scroll_callback ;
-    glfwSetScrollCallback(window, scrollFunc) ;
+    GLFWkeyfun key_func = &keyboard ;
+    glfwSetKeyCallback(window, key_func) ;
+    GLFWcursorposfun cursor_func = mouseCallback ;
+    glfwSetCursorPosCallback(window, cursor_func) ;
+    GLFWscrollfun scroll_func = scrollCallback ;
+    glfwSetScrollCallback(window, scroll_func) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
-void loadSampler (GLuint textureID, GLuint textureSampler) {
+void loadSampler (GLuint texture_id, GLuint texture_sampler) {
         glActiveTexture(GL_TEXTURE0) ;
-        glBindTexture(GL_TEXTURE_2D, textureID) ;
-        glUniform1i (textureSampler, 0) ;
+        glBindTexture(GL_TEXTURE_2D, texture_id) ;
+        glUniform1i (texture_sampler, 0) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
 
-void loadDataToShader (GLuint vboID) {
-    glBindBuffer (GL_ARRAY_BUFFER, vboID) ;
+void loadDataToShader (GLuint vbo_id) {
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id) ;
     glEnableVertexAttribArray(0) ;
     glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) 0 ) ;
     glEnableVertexAttribArray (1) ;
@@ -257,143 +267,186 @@ void disableData () {
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
-void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint textureID) {
+void deleteMemory (GLuint program_id, GLuint vao_id, GLuint* vbo_id, GLuint texture_id) {
     glDisableVertexAttribArray (0) ;
     glDisableVertexAttribArray (1) ;
-    glDeleteVertexArrays (1, &vaoID) ;
-    glDeleteBuffers (1, vboID) ;
-    glDeleteTextures(1, &textureID) ;
-    glDeleteProgram (programID) ;
+    glDeleteVertexArrays (1, &vao_id) ;
+    glDeleteBuffers (1, vbo_id) ;
+    glDeleteTextures(1, &texture_id) ;
+    glDeleteProgram (program_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
-void loadUniformMatrix (GLuint projID, GLuint viewID) {
+void loadUniformMatrix (GLuint proj_id, GLuint view_id, Viewport current_viewport) {
         mat4 projection, view ;
-        view = lookAt(cameraPos, cameraPos + cameraFront, cameraUp) ;
-        projection = perspective(radians (fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
-        glUniformMatrix4fv (projID, 1, GL_FALSE, &projection[0][0]) ;
-        glUniformMatrix4fv (viewID, 1, GL_FALSE, &view[0][0]) ;
+        //view = lookAt(g_camera_pos, g_camera_pos + g_camera_front, g_camera_up) ;
+        projection = perspective(radians (g_fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
+        view = current_viewport.getCamera() ;
+        glUniformMatrix4fv (proj_id, 1, GL_FALSE, &projection[0][0]) ;
+        glUniformMatrix4fv (view_id, 1, GL_FALSE, &view[0][0]) ;
         checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
-void drawCubes (vec3* cubePositions, GLuint modelID) {
+void drawCubes (vec3* cube_positions, GLuint model_id) {
     for (int i = 0 ; i < 10 ; i++) {
-            mat4 model = translate(mat4(1.0f),cubePositions[i]) ;
+            mat4 model = translate(mat4(1.0f),cube_positions[i]) ;
             //float angle = glfwGetTime()*20 ;
             //model = rotate(model, angle, vec3(1,1,1)) ;
-            glUniformMatrix4fv (modelID, 1, GL_FALSE, &model[0][0]) ;
+            glUniformMatrix4fv (model_id, 1, GL_FALSE, &model[0][0]) ;
             glDrawArrays(GL_TRIANGLES, 0 , 12*3) ; //render the data
     }
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
+void render (GLuint program_id, GLuint proj_id, GLuint view_id, GLuint texture_id, GLuint texture_sampler, GLuint model_id, vec3 cube_positions [], Viewport current_viewport ) {
+        glUseProgram (program_id) ; // use the shader
+
+        loadUniformMatrix(proj_id, view_id, current_viewport) ;
+
+        loadSampler(texture_id, texture_sampler) ;
+
+        drawCubes (cube_positions, model_id) ;
+
+}
+
+Viewport* initViewport (GLFWwindow* window) {
+    Viewport upperleft_viewport (window,             0, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::SAGITAL_PLANE) ;
+    Viewport upperright_viewport (window, WIDTH_INIT/2, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::CORONAL_PLANE) ;
+    Viewport bottomleft_viewport (window,            0,             0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::TRANSVERSE_PLANE) ;
+    Viewport bottomright_viewport (window, WIDTH_INIT/2,            0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::VOLUME_RENDERING) ;
+    Viewport* p_viewport = new Viewport [4] ;
+
+    p_viewport [0] = upperleft_viewport ;
+    p_viewport [1] = upperright_viewport ;
+    p_viewport [2] = bottomleft_viewport ;
+    p_viewport [3] = bottomright_viewport ;
+
+    for (int i = 0  ; i < 4 ; i++) {
+       p_viewport[i].setUpCamera() ;
+    }
+    return p_viewport ;
+}
 int main()
 {
-    GLFWwindow* window = initGlfwAndWindow() ;
-    initGlew() ;
+    try {
+        GLFWwindow* window = initGlfwAndWindow() ;
+        initGlew() ;
+        initGL () ;
 
-    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glClearColor(0,255,0,0) ;
+        GLuint program_id = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
 
-    GLuint programID = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+        float vertices[] = {
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
 
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
 
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-    } ;
-    vec3 cubePositions[] = {
-  vec3( 0.0f,  0.0f,  0.0f),
-  vec3( 2.0f,  5.0f, -15.0f),
-  vec3(-1.5f, -2.2f, -2.5f),
-  vec3(-3.8f, -2.0f, -12.3f),
-  vec3( 2.4f, -0.4f, -3.5f),
-  vec3(-1.7f,  3.0f, -7.5f),
-  vec3( 1.3f, -2.0f, -2.5f),
-  vec3( 1.5f,  2.0f, -2.5f),
-  vec3( 1.5f,  0.2f, -1.5f),
-  vec3(-1.3f,  1.0f, -1.5f)
-};
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+        } ;
+        vec3 cube_positions[] = {
+          vec3( 0.0f,  0.0f,  0.0f),
+          vec3( 2.0f,  5.0f, -15.0f),
+          vec3(-1.5f, -2.2f, -2.5f),
+          vec3(-3.8f, -2.0f, -12.3f),
+          vec3( 2.4f, -0.4f, -3.5f),
+          vec3(-1.7f,  3.0f, -7.5f),
+          vec3( 1.3f, -2.0f, -2.5f),
+          vec3( 1.5f,  2.0f, -2.5f),
+          vec3( 1.5f,  0.2f, -1.5f),
+          vec3(-1.3f,  1.0f, -1.5f)
+        };
 
-    GLuint projID, viewID, modelID, textureSampler ;
-    generateUniformVariable (programID, &textureSampler, &projID, &viewID, &modelID) ;
+        GLuint proj_id, view_id, model_id, texture_sampler ;
+        generateUniformVariable (program_id, &texture_sampler, &proj_id, &view_id, &model_id) ;
+
+        GLuint vao_id  = loadAndBindVAO();
+
+        GLuint vbo_id ;
+        glGenBuffers (1, &vbo_id) ;
+        glBindBuffer (GL_ARRAY_BUFFER, vbo_id) ;
+        glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
+
+        loadDataToShader(vbo_id) ;
+
+        GLuint texture_id = loadTexture() ;
+
+        float last_frame = 0.0f ;
+        Viewport* p_viewport = initViewport(window) ;
+
+        do {
+            float current_frame = glfwGetTime() ;
+            g_delta_time = current_frame - last_frame ;
+            last_frame = current_frame ;
+            glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
+            for (int i = 0 ; i < 4 ; i++) {
+                p_viewport[i].useViewport() ;
+                render (program_id, proj_id, view_id, texture_id, texture_sampler, model_id, cube_positions, p_viewport[i]) ;
+            }
 
 
-    GLuint vaoID  = loadAndBindVAO();
-
-    GLuint vboID ;
-    glGenBuffers (1, &vboID) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
-
-    loadDataToShader(vboID) ;
-
-    GLuint textureID = loadTexture() ;
-
-    setGLFWCallbackFunction (window) ;
-
-    glEnable (GL_DEPTH_TEST) ;
-    float lastFrame = 0.0f ;
-    do {
-        float currentFrame = glfwGetTime() ;
-        deltaTime = currentFrame - lastFrame ;
-        lastFrame = currentFrame ;
-
-        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
-        glUseProgram (programID) ; // use the shader
-
-        loadUniformMatrix(projID, viewID) ;
-
-        loadSampler(textureID, textureSampler) ;
-
-        drawCubes (cubePositions, modelID) ;
-
-        glfwSwapBuffers(window) ;
-        glfwPollEvents() ; // process events already in the event queue
-        //getKey uses qwerty keyboard
-    } while (closeWindow(window) == 0)  ;
-    disableData() ;
-    deleteMemory(programID, vaoID, &vboID, textureID) ;
+            glfwSwapBuffers(window) ;
+            glfwPollEvents() ; // process events already in the event queue
+            //getKey uses qwerty keyboard
+        } while (closeWindow(window) == 0)  ;
+        // no finally block, the id variable are known only in try block
+        disableData() ;
+        deleteMemory(program_id, vao_id, &vbo_id, texture_id) ;
+    } catch (GLenum err) {
+        switch (err) {
+        case GL_INVALID_ENUM :
+            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag" << endl ;
+            break ;
+        case GL_INVALID_VALUE :
+            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
+            break ;
+        case GL_INVALID_OPERATION :
+            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
+            break ;
+        case GL_INVALID_FRAMEBUFFER_OPERATION :
+            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " << endl ;
+            break ;
+        case GL_OUT_OF_MEMORY :
+            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " << endl ;
+            break ;
+        }
+    }
     return 0;
 }

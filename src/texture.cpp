@@ -33,6 +33,7 @@ using namespace std;
 // cmake rule to copy only modified shader file
 
 void windowSize (GLFWwindow* window, int width, int height) ;
+
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
         cerr << "Failed to initialize GLFW\n" << endl ;
@@ -94,10 +95,10 @@ GLuint loadTexture () {
         p_data[i] = p_temp[0];
     }
 
-    GLuint textureID ;
-    glGenTextures (1, &textureID) ;
+    GLuint texture_id ;
+    glGenTextures (1, &texture_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    glBindTexture (GL_TEXTURE_2D, textureID) ;
+    glBindTexture (GL_TEXTURE_2D, texture_id) ;
     float pixels [] = {
         0.0f, 1.0f,
         1.0f, 0.0f,
@@ -112,7 +113,7 @@ GLuint loadTexture () {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // interpolation mode
 
     delete [] p_data;
-    return textureID ;
+    return texture_id ;
 }
 
 void initGlew () {
@@ -132,9 +133,9 @@ GLuint loadLUT (unsigned char data [256][3]) {
         pixels[3 * i + 1] = data[i][1] ;
         pixels[3 * i + 2] = data[i][2] ;
     }
-    GLuint textureID ;
-    glGenTextures (1, &textureID) ;
-    glBindTexture (GL_TEXTURE_1D, textureID) ;
+    GLuint texture_id ;
+    glGenTextures (1, &texture_id) ;
+    glBindTexture (GL_TEXTURE_1D, texture_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels) ; // load the image
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); //wrapping mode
@@ -142,15 +143,15 @@ GLuint loadLUT (unsigned char data [256][3]) {
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // interpolation mode
-    return textureID ;
+    return texture_id ;
 }
 
 // when you click and move the mouse the brightness and contrast change
 void cursorMove (GLFWwindow* window, double xpos, double ypos) {
-    GLint programID ;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
-    GLuint brightness = glGetUniformLocation (programID, "bright") ;
-    GLuint contrast = glGetUniformLocation(programID, "contr") ;
+    GLint program_id ;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program_id) ;
+    GLuint brightness = glGetUniformLocation (program_id, "bright") ;
+    GLuint contrast = glGetUniformLocation(program_id, "contr") ;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         // brightness 0 at the middle -1 at left corner and 1 at right corner
         glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/(HEIGHT_INIT/2)) ;
@@ -164,10 +165,10 @@ void cursorMove (GLFWwindow* window, double xpos, double ypos) {
                                                         it isn't treated in cursorMove)*/
 void mouseButton (GLFWwindow* window, int button, int action, int mods) {
     double xpos, ypos ;
-    GLint programID ;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &programID) ;
-    GLuint brightness = glGetUniformLocation (programID, "bright") ;
-    GLuint contrast = glGetUniformLocation(programID, "contr") ;
+    GLint program_id ;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &program_id) ;
+    GLuint brightness = glGetUniformLocation (program_id, "bright") ;
+    GLuint contrast = glGetUniformLocation(program_id, "contr") ;
     if ((button == GLFW_MOUSE_BUTTON_RIGHT) && (action == GLFW_PRESS)) {
         // no change at the picture => brightness = 0 contrast = 1
         glUniform1f (brightness, 0.0f) ;
@@ -182,29 +183,29 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods) {
 }
 
 void windowSize (GLFWwindow* window, int width, int height) {
-    float ratioWindow = ((float) width)/height ;
-    if (ratioWindow > RATIO_INIT) {
+    float ratio_window = ((float) width)/height ;
+    if (ratio_window > RATIO_INIT) {
     // too wide
         width = RATIO_INIT * height ;
-    } else if (ratioWindow < RATIO_INIT) {
+    } else if (ratio_window < RATIO_INIT) {
         height = width / RATIO_INIT  ;
     }
     glViewport (0, 0, width, height) ;
 }
 
-GLuint loadShader (char* vertexShader, char* fragmentShader) {
-    GLuint programID = LoadShaders(vertexshader, fragmentshader) ;
-    if (programID == 0 ) {
+GLuint loadShader (char* vertex_shader, char* fragment_shader) {
+    GLuint program_id = LoadShaders(vertex_shader, fragment_shader) ;
+    if (program_id == 0 ) {
             cout << "Error loading shader" << endl ;
             exit(EXIT_FAILURE) ;
     }
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return programID ;
+    return program_id ;
 }
 
 
-float* loadTextureCoord () {
-    float textureCoord [12] = {
+float* loadTexture_coord () {
+    float texture_coord [12] = {
         0.0f, 1.0f,
         0.0f, 0.0f,
         1.0f, 1.0f,
@@ -213,82 +214,82 @@ float* loadTextureCoord () {
         1.0f, 0.0f
     };
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return textureCoord ;
+    return texture_coord ;
 }
 
 GLuint loadAndBindVAO () {
-    GLuint vaoID ;
+    GLuint vao_id ;
     //create VAO which contains every information about the location and state of the VBO in VRAM
-    glGenVertexArrays(1,&vaoID) ;
-    glBindVertexArray (vaoID) ;
+    glGenVertexArrays(1,&vao_id) ;
+    glBindVertexArray (vao_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return vaoID ;
+    return vao_id ;
 }
 
-GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
-    GLuint *vboID =  new GLuint[2];
+GLuint* loadAndFillVBO (float* vertex, float* texture_coord) {
+    GLuint *vbo_id =  new GLuint[2];
     // create VBO which allocate space in the VRAM
-    glGenBuffers (2, vboID) ;
+    glGenBuffers (2, vbo_id) ;
     // unlock it
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
     glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(texture_coord), texture_coord, GL_STREAM_DRAW) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return vboID ;
+    return vbo_id ;
 }
 
-void generateUniformVariable (GLuint programID, GLuint* textureSampler, GLuint* lutSampler, GLuint* matProj) {
-    *textureSampler = glGetUniformLocation (programID, "myTextureSampler") ;
-    *lutSampler     = glGetUniformLocation (programID, "myLutSampler") ;
-    *matProj        = glGetUniformLocation (programID, "projection") ;
+void generateUniformVariable (GLuint program_id, GLuint* texture_sampler, GLuint* lut_sampler, GLuint* mat_proj) {
+    *texture_sampler = glGetUniformLocation (program_id, "myTextureSampler") ;
+    *lut_sampler     = glGetUniformLocation (program_id, "myLutSampler") ;
+    *mat_proj        = glGetUniformLocation (program_id, "projection") ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void setGLFWCallbackFunction (GLFWwindow* window) {
-    GLFWcursorposfun callbackCursor = &cursorMove ;
-    glfwSetCursorPosCallback(window, callbackCursor) ;
-    GLFWmousebuttonfun callbackMouse = &mouseButton ;
-    glfwSetMouseButtonCallback(window, callbackMouse) ;
-    GLFWwindowsizefun sizeFunc = &windowSize ;
-    glfwSetWindowSizeCallback(window, sizeFunc) ;
+    GLFWcursorposfun callback_cursor = &cursorMove ;
+    glfwSetCursorPosCallback(window, callback_cursor) ;
+    GLFWmousebuttonfun callback_mouse = &mouseButton ;
+    glfwSetMouseButtonCallback(window, callback_mouse) ;
+    GLFWwindowsizefun size_func = &windowSize ;
+    glfwSetWindowSizeCallback(window, size_func) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
-void loadSampler (GLuint textureID, GLuint textureSampler, GLuint lutID, GLuint lutSampler) {
+void loadSampler (GLuint texture_id, GLuint texture_sampler, GLuint lut_id, GLuint lut_sampler) {
     glActiveTexture(GL_TEXTURE0) ;
-    glBindTexture(GL_TEXTURE_2D, textureID) ;
-    glUniform1i (textureSampler, 0) ;
+    glBindTexture(GL_TEXTURE_2D, texture_id) ;
+    glUniform1i (texture_sampler, 0) ;
     glActiveTexture(GL_TEXTURE1) ;
-    glBindTexture(GL_TEXTURE_1D, lutID) ;
-    glUniform1i (lutSampler, 0) ;
+    glBindTexture(GL_TEXTURE_1D, lut_id) ;
+    glUniform1i (lut_sampler, 0) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 
-void loadDataToShader (GLuint* vboID) {
+void loadDataToShader (GLuint* vbo_id) {
     glEnableVertexAttribArray (0) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
     // send the vertices to the vertex shader
     glEnableVertexAttribArray (1) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void disableData () {
     glDisableVertexAttribArray (0) ;
-    glDisableVertexAttribArray (1)
+    glDisableVertexAttribArray (1) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
-void deleteMemory (GLuint programID, GLuint vaoID, GLuint* vboID, GLuint textureID, GLuint lutID) {
-    glDeleteVertexArrays (1, &vaoID) ;
-    glDeleteBuffers (2, vboID) ;
-    glDeleteProgram (programID) ;
-    glDeleteTextures(1, &textureID) ;
-    glDeleteTextures(1, &lutID) ;
+void deleteMemory (GLuint program_id, GLuint vao_id, GLuint* vbo_id, GLuint texture_id, GLuint lut_id) {
+    glDeleteVertexArrays (1, &vao_id) ;
+    glDeleteBuffers (2, vbo_id) ;
+    glDeleteProgram (program_id) ;
+    glDeleteTextures(1, &texture_id) ;
+    glDeleteTextures(1, &lut_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 int main()
@@ -297,7 +298,7 @@ int main()
     initGlew() ;
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
-    GLuint programID = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+    GLuint program_id = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
 
     float vertex []= { -1, -1, 0,
                       -1,  1, 0,
@@ -305,7 +306,7 @@ int main()
                       -1,  1, 0,
                        1, -1, 0,
                        1,  1, 0 } ;
-    float textureCoord [] = {
+    float texture_coord [] = {
                              0.0f, 1.0f,
                              0.0f, 0.0f,
                              1.0f, 1.0f,
@@ -314,22 +315,22 @@ int main()
                              1.0f, 0.0f
     } ;
 
-    GLuint vaoID = loadAndBindVAO();
+    GLuint vao_id = loadAndBindVAO();
 
-    GLuint *vboID =  new GLuint [2] ;
-    glGenBuffers (2, vboID) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[0]) ;
+    GLuint *vbo_id =  new GLuint [2] ;
+    glGenBuffers (2, vbo_id) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
     glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vboID[1]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(texture_coord), texture_coord, GL_STREAM_DRAW) ;
     //load texture data and vertex into the GPU
 
-    GLuint lutID = loadLUT(g_lut_texture_data) ;
-    GLuint textureID = loadTexture() ;
+    GLuint lut_id = loadLUT(g_lut_texture_data) ;
+    GLuint texture_id = loadTexture() ;
     //Create LUT and texture from file
 
-    GLuint textureSampler, lutSampler, matProj ;
-    generateUniformVariable(programID, &textureSampler, &lutSampler, &matProj) ;
+    GLuint texture_sampler, lut_sampler, mat_proj ;
+    generateUniformVariable(program_id, &texture_sampler, &lut_sampler, &mat_proj) ;
     //Generate uniform variable location*/
 
     setGLFWCallbackFunction(window) ;
@@ -337,20 +338,20 @@ int main()
     mat4 projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
     do {
         glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
-        glUseProgram (programID) ; // use the shader
+        glUseProgram (program_id) ; // use the shader
 
-        loadSampler (textureID, textureSampler, lutID, lutSampler) ;
-        glUniformMatrix4fv (matProj, 1, GL_FALSE, &projection[0][0]) ;
+        loadSampler (texture_id, texture_sampler, lut_id, lut_sampler) ;
+        glUniformMatrix4fv (mat_proj, 1, GL_FALSE, &projection[0][0]) ;
         // load projection matrix into the vertex shader
 
-        loadDataToShader (vboID) ;
+        loadDataToShader (vbo_id) ;
         glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
         disableData() ;
 
         glfwSwapBuffers(window) ;
         glfwPollEvents() ;
     } while (closeWindow(window) == 0)  ;
-    deleteMemory (programID, vaoID, vboID, textureID, lutID) ;
+    deleteMemory (program_id, vao_id, vbo_id, texture_id, lut_id) ;
 }
 
 
