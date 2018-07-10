@@ -34,7 +34,7 @@ file(COPY ${SHADER_FILES} DESTINATION  ${CMAKE_BINARY_DIR}/src)
 
 add_executable(HelloOpenGL hello_opengl.cpp ../shader/SimpleFragmentShader.fragmentshader ../shader/SimpleVertexShader.vertexshader)
 add_executable(Projection projection.cpp ../shader/ProjecVertexShader.vertexshader ../shader/ProjecFragmentShader.fragmentshader Viewport.cpp ../include/Viewport.hpp)
-add_executable(Texture texture.cpp ../shader/TextFragmentShader.fragmentshader ../shader/TextVertexShader.vertexshader)
+add_executable(Texture texture.cpp ../shader/TextFragmentShader.fragmentshader ../shader/TextVertexShader.vertexshader Viewport.cpp ../include/Viewport.hpp)
 
 target_link_libraries(HelloOpenGL ${OPENGL_LIBRARIES} glfw3 glew32 SmallGL) #${GLEW_LIBRARIES} ${GLFW_LIBRARIES} ${GLM_LIBRARIES})
 target_link_libraries(Projection ${OPENGL_LIBRARIES} glfw3 glew32 SmallGL) #${GLEW_LIBRARIES} ${GLFW_LIBRARIES} ${GLM_LIBRARIES})

@@ -30,8 +30,18 @@ public :
     GLFWwindow* getWindow () const ;
     mat4 getCamera ()  const;
 
+    void setX (int x) ;
+    void setY (int y) ;
+    void setHeight (int height) ;
+    void setWidth (int width) ;
+
     void useViewport () ;
     void setUpCamera() ;
+
+    int* worldCoordToViewportCoord (int x, int y) ;
+    // return an array index 0 x,index 1 y in viewport coordinate
+    int* viewportCoordToWorldCoord (int x, int y) ;
+    // return an array index 0 x,index 1 y in world coordinate
 
 private :
     int m_x ;

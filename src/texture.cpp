@@ -15,6 +15,8 @@ using namespac glm ;
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+#include <Viewport.hpp>
+
 #include "cloud.h"
 #include "LUT.h"
 #include "LUT_CYAN.h"
@@ -32,7 +34,14 @@ using namespace std;
 
 // cmake rule to copy only modified shader file
 
+float* g_p_brightness, *g_p_contrast ;
+
 void windowSize (GLFWwindow* window, int width, int height) ;
+void setGLFWCallbackFunction (GLFWwindow* window) ;
+void keepRatio (int* p_width, int* p_height) ;
+int getBlock (GLFWwindow* window, int xpos, int ypos) ;
+void posBlock (int num_view, int* width, int* height) ;
+
 
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
@@ -54,8 +63,16 @@ GLFWwindow* initGlfwAndWindow () {
         exit (EXIT_FAILURE) ;
     }
     glfwMakeContextCurrent(window) ; // current on the calling thread
-    windowSize(window, WIDTH_INIT, HEIGHT_INIT) ;
+
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
+    setGLFWCallbackFunction(window) ;
+
+
     return window ;
+}
+
+void initGL () {
+    glClearColor(0,255,0,0) ;
 }
 
 bool checkGLError(string FILE, string FUNCTION, int LINE) {
@@ -79,7 +96,9 @@ bool checkGLError(string FILE, string FUNCTION, int LINE) {
     }
     return (err !=  GL_NO_ERROR) ;
 }
+
 GLuint loadTexture () {
+// load the cloud texture from cloud.h
     char* p_data = new char[g_cloud_texture_width * g_cloud_texture_height];
     if (!p_data)
     {
@@ -124,9 +143,11 @@ void initGlew () {
 }
 
 bool closeWindow (GLFWwindow* window) {
+// check if there is a request to close the window
     return ((glfwGetKey (window, GLFW_KEY_ESCAPE ) == GLFW_PRESS) || (glfwWindowShouldClose(window) != 0) || (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)) ;
 }
 GLuint loadLUT (unsigned char data [256][3]) {
+// load LUT table from header file
     unsigned char *pixels = new unsigned char [256*3] ;
     for (int i =  0 ; i < 256 ; ++i) {
         pixels[3 * i    ] = data[i][0] ;
@@ -150,50 +171,75 @@ GLuint loadLUT (unsigned char data [256][3]) {
 void cursorMove (GLFWwindow* window, double xpos, double ypos) {
     GLint program_id ;
     glGetIntegerv(GL_CURRENT_PROGRAM, &program_id) ;
-    GLuint brightness = glGetUniformLocation (program_id, "bright") ;
-    GLuint contrast = glGetUniformLocation(program_id, "contr") ;
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        // brightness 0 at the middle -1 at left corner and 1 at right corner
-        glUniform1f (brightness, (float) (ypos-HEIGHT_INIT/2)/(HEIGHT_INIT/2)) ;
-        // contrast 0 at the left corner 1 at the middle and 2 at the right corner
-        glUniform1f (contrast, (float) xpos/(WIDTH_INIT/2)) ;
+    int xpos_view, ypos_view ;
+    glfwGetWindowSize (window, &xpos_view, &ypos_view) ;
+    keepRatio (&xpos_view, &ypos_view) ;
+    // give the height and width of the window where we should be working on to keep the window ratio
+    int viewport_size_x = xpos_view/2 ;
+    int viewport_size_y = ypos_view/2 ;
+    // the size of the viewport (x : width, y : height)
+    /* Index of g_p_brightness and contras :   0     1
+                                               2     3 */
+    int num_view = getBlock (window, xpos, ypos) ;
+    // num on which viewport you clicked
+    posBlock (num_view, &xpos_view, &ypos_view) ;
+    // return the bottom left corner of the current viewport
+    if ((num_view >= 0) && (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)) {
+        g_p_brightness [num_view] = ((ypos_view -((float) ypos)) - viewport_size_y/2) /(viewport_size_y/2) ;
+        g_p_contrast [num_view] = (((float) xpos) - xpos_view)/(viewport_size_x/2) ;
     }
 }
 
-/* when you right click the picture is reset to no brightness and contrast change
- when you left click you change brightness and contrast (if you just left click without moving the mouse
-                                                        it isn't treated in cursorMove)*/
-void mouseButton (GLFWwindow* window, int button, int action, int mods) {
+void mouseClick (GLFWwindow* window, int button, int action, int mods) {
     double xpos, ypos ;
-    GLint program_id ;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &program_id) ;
-    GLuint brightness = glGetUniformLocation (program_id, "bright") ;
-    GLuint contrast = glGetUniformLocation(program_id, "contr") ;
-    if ((button == GLFW_MOUSE_BUTTON_RIGHT) && (action == GLFW_PRESS)) {
-        // no change at the picture => brightness = 0 contrast = 1
-        glUniform1f (brightness, 0.0f) ;
-        glUniform1f (contrast, 1.0f) ;
-    } else if ((button == GLFW_MOUSE_BUTTON_LEFT) && (action == GLFW_PRESS)) {
-        glfwGetCursorPos(window, &xpos, &ypos) ;
-        glUniform1f (brightness, (float) ((ypos-HEIGHT_INIT/2)/HEIGHT_INIT/2)) ;
-        // brightness 0 at the middle -1 at left corner and 1 at right corner
-        glUniform1f (contrast, xpos/(WIDTH_INIT/2)) ;
-        // contrast 0 at the left corner 1 at the middle and 2 at the right corner
+    glfwGetCursorPos(window, &xpos, &ypos) ;
+    int num_view = getBlock (window, xpos, ypos) ;
+    if ((num_view >= 0) && (button == GLFW_MOUSE_BUTTON_RIGHT) && (action == GLFW_PRESS)) {
+        // when you right click show the picture w/o changes
+        g_p_brightness [num_view] = 0 ;
+        g_p_contrast [num_view] = 1 ;
+    }
+
+
+}
+
+void posBlock (int num_view, int* width, int* height) {
+// take the width and height of the current window and return the coordinate of the bottom left corner.
+    /* Index of g_p_brightness and contras :   0     1
+                                               2     3 */
+    switch (num_view) {
+    case 0 :
+        *width = 0 ;
+        *height = *height/2 ;
+        break ;
+    case 1 :
+        *width = *width/2 ;
+        *height = *height/2 ;
+        break ;
+    case 2 :
+        *width = 0 ;
+        break ;
+    case 3 :
+        *width = *width/2 ;
+        break ;
     }
 }
 
-void windowSize (GLFWwindow* window, int width, int height) {
-    float ratio_window = ((float) width)/height ;
+
+void keepRatio (int* p_width, int* p_height) {
+// take the width and height of the window and compute the right width and height to keep the ratio
+    float ratio_window = ((float) (*p_width))/(*p_height) ;
     if (ratio_window > RATIO_INIT) {
     // too wide
-        width = RATIO_INIT * height ;
+        *p_width = RATIO_INIT * (*p_height) ;
     } else if (ratio_window < RATIO_INIT) {
-        height = width / RATIO_INIT  ;
+        *p_height = *p_width / RATIO_INIT  ;
     }
-    glViewport (0, 0, width, height) ;
 }
 
 GLuint loadShader (char* vertex_shader, char* fragment_shader) {
+// load the shader and quit the program if there is a pb
+// exit should be kept even with exception because LoadShaders doesn't throw exceptions
     GLuint program_id = LoadShaders(vertex_shader, fragment_shader) ;
     if (program_id == 0 ) {
             cout << "Error loading shader" << endl ;
@@ -204,18 +250,6 @@ GLuint loadShader (char* vertex_shader, char* fragment_shader) {
 }
 
 
-float* loadTexture_coord () {
-    float texture_coord [12] = {
-        0.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        1.0f, 0.0f
-    };
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-    return texture_coord ;
-}
 
 GLuint loadAndBindVAO () {
     GLuint vao_id ;
@@ -226,7 +260,22 @@ GLuint loadAndBindVAO () {
     return vao_id ;
 }
 
-GLuint* loadAndFillVBO (float* vertex, float* texture_coord) {
+GLuint* loadAndFillVBO () {
+// fill the vertex buffer object with the vertex and texture coordinate
+    float vertex []= { -1, -1, 0,
+                       -1,  1, 0,
+                        1, -1, 0,
+                       -1,  1, 0,
+                        1, -1, 0,
+                        1,  1, 0 } ;
+    float texture_coord [] = {
+                             0.0f, 1.0f,
+                             0.0f, 0.0f,
+                             1.0f, 1.0f,
+                             0.0f, 0.0f,
+                             1.0f, 1.0f,
+                             1.0f, 0.0f
+    } ;
     GLuint *vbo_id =  new GLuint[2];
     // create VBO which allocate space in the VRAM
     glGenBuffers (2, vbo_id) ;
@@ -249,14 +298,15 @@ void generateUniformVariable (GLuint program_id, GLuint* texture_sampler, GLuint
 void setGLFWCallbackFunction (GLFWwindow* window) {
     GLFWcursorposfun callback_cursor = &cursorMove ;
     glfwSetCursorPosCallback(window, callback_cursor) ;
-    GLFWmousebuttonfun callback_mouse = &mouseButton ;
+    GLFWmousebuttonfun callback_mouse = &mouseClick ;
     glfwSetMouseButtonCallback(window, callback_mouse) ;
-    GLFWwindowsizefun size_func = &windowSize ;
-    glfwSetWindowSizeCallback(window, size_func) ;
+    /*GLFWwindowsizefun size_func = &windowSize ;
+    glfwSetWindowSizeCallback(window, size_func) ;*/
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
 void loadSampler (GLuint texture_id, GLuint texture_sampler, GLuint lut_id, GLuint lut_sampler) {
+// load the Uniform variable lut sampler and texture sampler
     glActiveTexture(GL_TEXTURE0) ;
     glBindTexture(GL_TEXTURE_2D, texture_id) ;
     glUniform1i (texture_sampler, 0) ;
@@ -292,66 +342,159 @@ void deleteMemory (GLuint program_id, GLuint vao_id, GLuint* vbo_id, GLuint text
     glDeleteTextures(1, &lut_id) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
+
+void render (GLuint texture_id, GLuint texture_sampler, GLuint* vbo_id, GLuint lut_id, GLuint lut_sampler, GLuint mat_proj) {
+    loadSampler (texture_id, texture_sampler, lut_id, lut_sampler) ;
+    mat4 projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
+    glUniformMatrix4fv (mat_proj, 1, GL_FALSE, &projection[0][0]) ;
+    // load projection matrix into the vertex shader
+    loadDataToShader (vbo_id) ;
+    glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
+}
+
+Viewport* initViewport (GLFWwindow* window) {
+
+/* Index of p_viewport :   0     1
+                           2     3 */
+    Viewport upperleft_viewport   (window,            0, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::SAGITAL_PLANE) ;
+    Viewport upperright_viewport  (window, WIDTH_INIT/2, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::CORONAL_PLANE) ;
+    Viewport bottomleft_viewport  (window,            0,             0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::TRANSVERSE_PLANE) ;
+    Viewport bottomright_viewport (window, WIDTH_INIT/2,             0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::VOLUME_RENDERING) ;
+    Viewport* p_viewport = new Viewport [4] ;
+
+    p_viewport [0] = upperleft_viewport ;
+    p_viewport [1] = upperright_viewport ;
+    p_viewport [2] = bottomleft_viewport ;
+    p_viewport [3] = bottomright_viewport ;
+
+    for (int i = 0  ; i < 4 ; i++) {
+       p_viewport[i].setUpCamera() ; // maybe should be done in Viewport constructor ?
+    }
+    return p_viewport ;
+}
+
+Viewport* updateViewport (GLFWwindow* window, Viewport* p_viewport) {
+    /* Index of p_viewport :   0     1
+                               2     3 */
+    // Should be window size callback ? (p_viewport needed)
+    int width, height ;
+    glfwGetWindowSize (window, &width, &height) ;
+    keepRatio (&width, &height) ;
+
+    p_viewport [0].setY (height/2) ; // upper left
+    p_viewport [1].setX (width/2) ;  // upper right
+    p_viewport [1].setY (height/2) ; // upper right
+    p_viewport [3].setX (width/2) ;// bottom right
+
+    for (int i = 0 ; i < 4 ; i++) {
+        p_viewport[i].setWidth  (width/2) ;
+        p_viewport[i].setHeight (height/2) ;
+    }
+
+    return p_viewport ;
+}
+
+void loadUniformBrightAndContrast (GLuint program_id, int i) {
+/* Index of g_p_brightness :   0     1
+                               2     3 */
+    GLuint brightness = glGetUniformLocation (program_id, "bright") ;
+    GLuint contrast = glGetUniformLocation(program_id, "contr") ;
+    glUniform1f (brightness, g_p_brightness[i]) ;
+    // brightness 0 at the middle -1 at left corner and 1 at right corner
+    glUniform1f (contrast, g_p_contrast[i]) ;
+    // contrast 0 at the left corner 1 at the middle and 2 at the right corner
+
+}
+
+int getBlock (GLFWwindow* window, int xpos, int ypos) {
+/* Index of g_p_brightness :   0     1
+                               2     3
+    get which viewport is at xpos and ypos */
+    int width, height, num_block ;
+    glfwGetWindowSize(window, &width, &height) ;
+    keepRatio(&width, &height) ;
+// get the width and height where we are working
+    if ((xpos < width) && (ypos < height)) {
+        if (xpos < width/2) {
+            if (ypos < height/2) num_block = 0 ;
+            else num_block = 2 ;
+        } else {
+            if (ypos < height/2) num_block = 1 ;
+            else num_block = 3 ;
+        }
+    } else return -1 ;
+    return num_block ;
+}
+
+void initBrightnessAndContrast () {
+    g_p_brightness = new float [4] ;
+    g_p_contrast = new float [4] ;
+    for (int i = 0 ; i < 4 ; i++) {
+        g_p_brightness [i] = 0 ;
+        g_p_contrast [i] = 1 ;
+    }
+}
+
 int main()
 {
-    GLFWwindow* window = initGlfwAndWindow() ;
-    initGlew() ;
-    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
-    glClearColor(0,255,0,0) ;
-    GLuint program_id = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+    try {
+        GLFWwindow* window = initGlfwAndWindow() ;
+        initGlew() ;
+        initGL() ;
+        initBrightnessAndContrast () ;
 
-    float vertex []= { -1, -1, 0,
-                      -1,  1, 0,
-                       1, -1, 0,
-                      -1,  1, 0,
-                       1, -1, 0,
-                       1,  1, 0 } ;
-    float texture_coord [] = {
-                             0.0f, 1.0f,
-                             0.0f, 0.0f,
-                             1.0f, 1.0f,
-                             0.0f, 0.0f,
-                             1.0f, 1.0f,
-                             1.0f, 0.0f
-    } ;
+        GLuint program_id = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+        GLuint vao_id = loadAndBindVAO();
+        GLuint *vbo_id =  loadAndFillVBO() ;
 
-    GLuint vao_id = loadAndBindVAO();
+        GLuint lut_id = loadLUT(g_lut_texture_data) ;
+        GLuint texture_id = loadTexture() ;
+        //Create LUT and texture from file
 
-    GLuint *vbo_id =  new GLuint [2] ;
-    glGenBuffers (2, vbo_id) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(texture_coord), texture_coord, GL_STREAM_DRAW) ;
-    //load texture data and vertex into the GPU
+        GLuint texture_sampler, lut_sampler, mat_proj ;
+        generateUniformVariable(program_id, &texture_sampler, &lut_sampler, &mat_proj) ;
+        //Generate uniform variable location*/
 
-    GLuint lut_id = loadLUT(g_lut_texture_data) ;
-    GLuint texture_id = loadTexture() ;
-    //Create LUT and texture from file
+        Viewport *p_viewport = initViewport(window) ;
 
-    GLuint texture_sampler, lut_sampler, mat_proj ;
-    generateUniformVariable(program_id, &texture_sampler, &lut_sampler, &mat_proj) ;
-    //Generate uniform variable location*/
 
-    setGLFWCallbackFunction(window) ;
+        do {
+            glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
+            glUseProgram (program_id) ; // use the shader
 
-    mat4 projection = ortho(-1.0f,1.0f,-1.0f,1.0f) ;
-    do {
-        glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
-        glUseProgram (program_id) ; // use the shader
+            p_viewport = updateViewport(window, p_viewport) ;
 
-        loadSampler (texture_id, texture_sampler, lut_id, lut_sampler) ;
-        glUniformMatrix4fv (mat_proj, 1, GL_FALSE, &projection[0][0]) ;
-        // load projection matrix into the vertex shader
+            for (int i = 0 ; i < 4 ; i++) {
+                    loadUniformBrightAndContrast(program_id, i) ;
+                    p_viewport[i].useViewport() ;
+                    render (texture_id, texture_sampler, vbo_id, lut_id, lut_sampler, mat_proj) ;
+            }
 
-        loadDataToShader (vbo_id) ;
-        glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
-        disableData() ;
+            disableData() ;
 
-        glfwSwapBuffers(window) ;
-        glfwPollEvents() ;
-    } while (closeWindow(window) == 0)  ;
-    deleteMemory (program_id, vao_id, vbo_id, texture_id, lut_id) ;
+            glfwSwapBuffers(window) ;
+            glfwPollEvents() ;
+        } while (closeWindow(window) == 0)  ;
+        deleteMemory (program_id, vao_id, vbo_id, texture_id, lut_id) ;
+    } catch (GLenum err) {
+    switch (err) {
+        case GL_INVALID_ENUM :
+            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag" << endl ;
+            break ;
+        case GL_INVALID_VALUE :
+            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
+            break ;
+        case GL_INVALID_OPERATION :
+            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
+            break ;
+        case GL_INVALID_FRAMEBUFFER_OPERATION :
+            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " << endl ;
+            break ;
+        case GL_OUT_OF_MEMORY :
+            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " << endl ;
+            break ;
+        }
+    }
 }
 
 
