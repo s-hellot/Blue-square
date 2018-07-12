@@ -398,9 +398,6 @@ Viewport* initViewport (GLFWwindow* window) {
     p_viewport [2] = bottomleft_viewport ;
     p_viewport [3] = bottomright_viewport ;
 
-    for (int i = 0  ; i < 4 ; i++) {
-       p_viewport[i].setUpCamera() ; // maybe should be done in Viewport constructor ?
-    }
     return p_viewport ;
 }
 
@@ -465,6 +462,7 @@ void initBrightnessAndContrast () {
         g_p_contrast [i] = 1 ;
     }
 }
+
 
 int main()
 {

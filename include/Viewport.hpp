@@ -29,13 +29,15 @@ public :
     View getView () const ;
     GLFWwindow* getWindow () const ;
     mat4 getCamera ()  const;
+    vec3 getCameraPosition () const ;
 
     void setX (int x) ;
     void setY (int y) ;
     void setHeight (int height) ;
     void setWidth (int width) ;
+    void setCamera (mat4 camera) ;
 
-    void useViewport () ;
+    void useViewport () const ;
     void setUpCamera() ;
 
     int* worldCoordToViewportCoord (int x, int y) ;
@@ -51,6 +53,7 @@ private :
     View m_view ;
     GLFWwindow* m_window_parent ;
     mat4 m_camera ;
+    vec3 m_camera_position ;
     // matrix camera, model, view
 
 };

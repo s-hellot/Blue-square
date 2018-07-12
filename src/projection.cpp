@@ -21,16 +21,19 @@ using namespace glm ;
 #define RATIO_INIT (WIDTH_INIT/HEIGHT_INIT)
 using namespace std;
 
-vec3 g_camera_pos = vec3 (0.0f, 0.0f, 6.0f) ;
-vec3 g_camera_front = vec3 (0.0f, 0.0f, -1.0f) ;
-vec3 g_camera_up = vec3 (0.0f, 1.0f, 0.0f) ;
+
 float g_delta_time = 0.0f ;
-bool g_first_mouse_click = false ;
-// true if it isn't the first time the mouse appears on the screen
-float g_last_x, g_last_y ;
-float g_pitch = 0, g_yaw = -90 ;
+bool* g_first_mouse_click = new bool [4] ;
+// true if it isn't the first time the mouse appears on the screen, array because first click on each viewport
+float *g_last_x = new float [4], *g_last_y = new float [4] ;
+// last x and last y on each viewport, following :
+/* Index of p_viewport :   0     1
+                           2     3 */
+float *g_pitch = new float [4], *g_yaw = new float [4] ;
 // yaw is init at -90 to remove the jump in x at first mouse input (still exist in z-axis)
 float g_fov = 45 ;
+
+Viewport* g_p_viewport = new Viewport [4] ;
 
 void setGLFWCallbackFunction (GLFWwindow* window) ;
 
@@ -145,7 +148,7 @@ GLuint loadTexture () {
     return texture_id ;
 }
 
-void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods){
+/*void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods){
     float camera_speed = 15.0f * g_delta_time ;
     switch (key) {
     case GLFW_KEY_W :
@@ -161,40 +164,66 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods){
         g_camera_pos += normalize(cross (g_camera_front, g_camera_up))* camera_speed ;
         break ;
     }
+}*/
+
+int getBlock (GLFWwindow* window, int xpos, int ypos) {
+/* Index of g_p_brightness :   0     1
+                               2     3
+    get which viewport is at xpos and ypos */
+    int width, height, num_block ;
+    glfwGetWindowSize(window, &width, &height) ;
+    //keepRatio(&width, &height) ;
+// get the width and height where we are working
+    if ((xpos < width) && (ypos < height)) {
+        if (xpos < width/2) {
+            if (ypos < height/2) num_block = 0 ;
+            else num_block = 2 ;
+        } else {
+            if (ypos < height/2) num_block = 1 ;
+            else num_block = 3 ;
+        }
+    } else return -1 ;
+    return num_block ;
 }
 
 void mouseCallback (GLFWwindow* window, double xpos, double ypos) {
     float xoffset, yoffset ;
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
-        if (g_first_mouse_click) {
-            g_last_x = xpos ;
-            g_last_y = ypos ;
+    int num_view = getBlock (window, xpos, ypos) ;
+    if ((glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) && (num_view != -1)) {
+        if (g_first_mouse_click[num_view]) {
+            g_last_x [num_view] = xpos ;
+            g_last_y [num_view] = ypos ;
+            g_first_mouse_click [num_view] = false ;
         } else {
-            xoffset = xpos - g_last_x ;
-            yoffset = g_last_y - ypos ;
+            xoffset = xpos - g_last_x [num_view] ;
+            yoffset = g_last_y [num_view] - ypos ;
             // reversed with Y because y axis is bottom to top on the screen coordinate
             // but we want to look up when the mouse cursor goes up (camera y-axis is opposite)
-            g_last_x = xpos ;
-            g_last_y = ypos ;
-            float sensitivity = 0.05f ;
+            g_last_x [num_view] = xpos ;
+            g_last_y [num_view] = ypos ;
+            float sensitivity = 0.15f ;
             xoffset *= sensitivity ;
             yoffset *= sensitivity ;
 
-            g_yaw += xoffset ;
-            g_pitch += yoffset ;
+            g_yaw[num_view] += yoffset ;
+            g_pitch[num_view] += xoffset ;
 
-            if (g_pitch > 89) {
-               g_pitch = 89 ;
-            } else if (g_pitch < - 89) {
-                g_pitch = -89 ;
-            }
+            /*if (g_pitch[num_view] > 89) {
+               g_pitch[num_view] = 89 ;
+            } else if (g_pitch[num_view] < - 89) {
+                g_pitch[num_view] = -89 ;
+            }*/
             // you can only see above and below you not behind you
             vec3 front_direction ;
-            front_direction.x = cos (radians(g_pitch)) * cos(radians(g_yaw)) ;
-            front_direction.y = sin(radians(g_pitch)) ;
-            front_direction.z = cos(radians(g_pitch)) * sin(radians(g_yaw)) ;
-            g_camera_front = normalize(front_direction) ;
+            front_direction.x = cos (radians(g_pitch[num_view])) * cos(radians(g_yaw[num_view])) ;
+            front_direction.y = sin(radians(g_pitch[num_view])) ;
+            front_direction.z = cos(radians(g_pitch[num_view])) * sin(radians(g_yaw[num_view])) ;
+            g_p_viewport[num_view].setUpCamera() ;
+            vec3 camera_pos = g_p_viewport[num_view].getCameraPosition () ;
+            g_p_viewport[num_view].setCamera(lookAt(camera_pos, camera_pos + normalize(front_direction), vec3(0,0,1))) ;
+
         }
+    }
 }
 
 void scrollCallback (GLFWwindow* window, double xoffset, double yoffset) {
@@ -223,7 +252,6 @@ GLuint loadAndBindVAO () {
     return vao_id ;
 }
 
-//not used
 GLuint loadAndFillVBO () {
     float vertices[] = {
             -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -283,13 +311,23 @@ void generateUniformVariable (GLuint program_id, GLuint* texture_sampler, GLuint
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 }
 
+void mouseButtonCallback (GLFWwindow* window, int button, int action, int mods) {
+    if ((button == GLFW_MOUSE_BUTTON_LEFT) && (action == GLFW_RELEASE)) {
+       for (int i = 0 ; i < 4 ; i++) {
+            g_first_mouse_click[i] = true ;
+       }
+    }
+}
+
 void setGLFWCallbackFunction (GLFWwindow* window) {
-    GLFWkeyfun key_func = &keyboard ;
-    glfwSetKeyCallback(window, key_func) ;
+    /*GLFWkeyfun key_func = &keyboard ;
+    glfwSetKeyCallback(window, key_func) ;*/
     GLFWcursorposfun cursor_func = mouseCallback ;
     glfwSetCursorPosCallback(window, cursor_func) ;
     GLFWscrollfun scroll_func = scrollCallback ;
     glfwSetScrollCallback(window, scroll_func) ;
+    GLFWmousebuttonfun mb_func = mouseButtonCallback ;
+    glfwSetMouseButtonCallback(window, mb_func) ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
@@ -325,6 +363,7 @@ void deleteMemory (GLuint program_id, GLuint vao_id, GLuint* vbo_id, GLuint text
     glDeleteBuffers (1, vbo_id) ;
     glDeleteTextures(1, &texture_id) ;
     glDeleteProgram (program_id) ;
+    delete [] g_p_viewport ;
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
@@ -368,17 +407,30 @@ Viewport* initViewport (GLFWwindow* window) {
     Viewport upperright_viewport (window, WIDTH_INIT/2, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::CORONAL_PLANE) ;
     Viewport bottomleft_viewport (window,            0,             0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::TRANSVERSE_PLANE) ;
     Viewport bottomright_viewport (window, WIDTH_INIT/2,            0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::VOLUME_RENDERING) ;
-    Viewport* p_viewport = new Viewport [4] ;
 
-    p_viewport [0] = upperleft_viewport ;
-    p_viewport [1] = upperright_viewport ;
-    p_viewport [2] = bottomleft_viewport ;
-    p_viewport [3] = bottomright_viewport ;
+    g_p_viewport [0] = upperleft_viewport ;
+    g_p_viewport [1] = upperright_viewport ;
+    g_p_viewport [2] = bottomleft_viewport ;
+    g_p_viewport [3] = bottomright_viewport ;
 
-    for (int i = 0  ; i < 4 ; i++) {
-       p_viewport[i].setUpCamera() ;
-    }
-    return p_viewport ;
+    return g_p_viewport ;
+
+}
+
+void initGlobalVariable (GLFWwindow* window) {
+        g_p_viewport = initViewport(window) ;
+
+        for (int i = 0 ; i < 4 ; i++) {
+            g_first_mouse_click [i] = true ;
+        }
+        g_yaw [0] = 0 ;
+        g_pitch [0] = 0 ;
+        g_yaw [1] = 90 ;
+        g_pitch [1] = 0 ;
+        g_yaw [2] = 0 ;
+        g_pitch [2] = 90 ;
+        g_yaw [3] = 45 ;
+        g_pitch [3] = 45 ;
 }
 int main()
 {
@@ -387,6 +439,7 @@ int main()
         GLFWwindow* window = initGlfwAndWindow() ;
         initGlew() ;
         initGL () ;
+        initGlobalVariable (window) ;
 
         program_id = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
         vec3 cube_positions[] = {
@@ -413,7 +466,6 @@ int main()
         texture_id = loadTexture() ;
 
         float last_frame = 0.0f ;
-        Viewport* p_viewport = initViewport(window) ;
 
         do {
             float current_frame = glfwGetTime() ;
@@ -421,13 +473,10 @@ int main()
             last_frame = current_frame ;
             glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
             checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-            glClear (GL_QUADS) ;
             for (int i = 0 ; i < 4 ; i++) {
-                p_viewport[i].useViewport() ;
-                render (program_id, proj_id, view_id, texture_id, texture_sampler, model_id, cube_positions, p_viewport[i]) ;
+                g_p_viewport[i].useViewport() ;
+                render (program_id, proj_id, view_id, texture_id, texture_sampler, model_id, cube_positions, g_p_viewport[i]) ;
             }
-
-
             glfwSwapBuffers(window) ;
             glfwPollEvents() ; // process events already in the event queue
             //getKey uses qwerty keyboard

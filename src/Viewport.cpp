@@ -6,6 +6,7 @@ Viewport::Viewport (GLFWwindow* w, int x, int y, int height, int width, View v) 
 {
     m_view = v ;
     m_window_parent = w ;
+    this->setUpCamera() ;
 }
 
 int Viewport::getX () const {
@@ -35,7 +36,9 @@ GLFWwindow* Viewport::getWindow () const {
 mat4 Viewport::getCamera () const {
     return m_camera ;
 }
-
+vec3 Viewport::getCameraPosition() const {
+    return m_camera_position ;
+}
 void Viewport::setX (int x) {
     m_x = x ;
 }
@@ -51,33 +54,39 @@ void Viewport::setWidth (int width) {
 void Viewport::setHeight (int height) {
     m_height = height ;
 }
+
+void Viewport::setCamera (mat4 camera) {
+    m_camera = camera ;
+}
 void Viewport::setUpCamera () {
     switch (m_view) {
     case SAGITAL_PLANE :
     // SAGITAL PLANE : separates left and right part of the body (right and left for hand) x = 0
-        m_camera = lookAt (vec3 (-10, 0, 0), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera_position = vec3 (-10, 0, 0) ;
         break ;
     case CORONAL_PLANE :
     // CORONAL PLANE : separates ventral and dorsal part z = 0
-        m_camera = lookAt (vec3 (0.0000001, 0, -10), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera_position = vec3 (0.0000001, 0, -10) ;
+
         break ;
     case TRANSVERSE_PLANE :
     // TRANSVERSE PLANE : separates upper and lower part y = 0
-        m_camera = lookAt (vec3 (0, -10, 0), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera_position = vec3 (0, -10, 0) ;
         break ;
     case VOLUME_RENDERING :
-        m_camera = lookAt (vec3 (0, -10, -10), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera_position = vec3 (0, -10, -10) ;
         break ;
     case UNKNOWN :
-        std::cerr << "View unknown " << std::endl ;
+        m_camera_position = vec3 (-10, -10, -10) ;
         break ;
     }
+    m_camera = lookAt (m_camera_position, vec3 (0, 0, 0), vec3 (0, 0, 1)) ;
 }
 
 Viewport::~Viewport () {
 }
 
-void Viewport::useViewport () {
+void Viewport::useViewport () const {
     glViewport (m_x, m_y, m_width, m_height) ;
 }
 
