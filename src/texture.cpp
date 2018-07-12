@@ -217,6 +217,20 @@ void mouseClick (GLFWwindow* window, int button, int action, int mods) {
 
 
 }
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+/* Index of g_p_brightness and contras :   0     1
+                                           2     3 */
+    if ((key == GLFW_KEY_LEFT_CONTROL || key == GLFW_KEY_RIGHT_CONTROL) && (action == GLFW_PRESS)) {
+        double xpos, ypos ;
+        glfwGetCursorPos(window, &xpos, &ypos) ;
+        int num_view = getBlock (window, xpos, ypos) ;
+        for (int i = 0 ; i < 4 ; ++i ) {
+            g_p_brightness [i] = g_p_brightness [num_view] ;
+            g_p_contrast   [i] = g_p_contrast [num_view] ;
+        }
+    }
+}
+
 
 void posBlock (int num_view, int* width, int* height) {
 // take the width and height of the current window and return the coordinate of the bottom left corner.
@@ -315,6 +329,8 @@ void setGLFWCallbackFunction (GLFWwindow* window) {
     glfwSetCursorPosCallback(window, callback_cursor) ;
     GLFWmousebuttonfun callback_mouse = &mouseClick ;
     glfwSetMouseButtonCallback(window, callback_mouse) ;
+    GLFWkeyfun key_fun = &key_callback ;
+    glfwSetKeyCallback(window, key_fun) ;
     /*GLFWwindowsizefun size_func = &windowSize ;
     glfwSetWindowSizeCallback(window, size_func) ;*/
     checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
