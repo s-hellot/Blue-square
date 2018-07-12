@@ -16,6 +16,7 @@ using namespac glm ;
 #include "glm/gtc/matrix_transform.hpp"
 
 #include <Viewport.hpp>
+#include <OpenGLException.hpp>
 
 #include "cloud.h"
 #include "LUT.h"
@@ -76,26 +77,38 @@ void initGL () {
 }
 
 bool checkGLError(string FILE, string FUNCTION, int LINE) {
-    GLenum err = glGetError() ;
-    switch (err) {
+
+    GLenum err = GL_NO_ERROR;
+
+#ifndef NDEBUG
+     err = glGetError() ;
+
+    if (err != GL_NO_ERROR) {
+        string error_message ;
+         switch (err) {
         case GL_INVALID_ENUM :
-            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag." ;
             break ;
         case GL_INVALID_VALUE :
-            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. " ;
             break ;
         case GL_INVALID_OPERATION :
-            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. " ;
             break ;
         case GL_INVALID_FRAMEBUFFER_OPERATION :
-            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE).  In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " ;
             break ;
         case GL_OUT_OF_MEMORY :
-            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " ;
             break ;
+         }
+        throw OpenGLException(__FILE__, __FUNCTION__, __LINE__, err, error_message) ;
     }
+
+#endif
     return (err !=  GL_NO_ERROR) ;
 }
+
 
 GLuint loadTexture () {
 // load the cloud texture from cloud.h
@@ -108,6 +121,7 @@ GLuint loadTexture () {
 
     char* p_temp = g_cloud_texture_data;
     unsigned char p_pixel[3];
+    #pragma omp parallel for
     for (int i = 0; i < g_cloud_texture_width * g_cloud_texture_height; ++i)
     {
         CLOUD_HEADER_PIXEL(p_temp, p_pixel);
@@ -149,6 +163,7 @@ bool closeWindow (GLFWwindow* window) {
 GLuint loadLUT (unsigned char data [256][3]) {
 // load LUT table from header file
     unsigned char *pixels = new unsigned char [256*3] ;
+    #pragma omp parallel for
     for (int i =  0 ; i < 256 ; ++i) {
         pixels[3 * i    ] = data[i][0] ;
         pixels[3 * i + 1] = data[i][1] ;
@@ -437,18 +452,19 @@ void initBrightnessAndContrast () {
 
 int main()
 {
+    GLuint vao_id, *vbo_id, texture_id, lut_id, program_id ;
     try {
         GLFWwindow* window = initGlfwAndWindow() ;
         initGlew() ;
         initGL() ;
         initBrightnessAndContrast () ;
 
-        GLuint program_id = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
-        GLuint vao_id = loadAndBindVAO();
-        GLuint *vbo_id =  loadAndFillVBO() ;
+        program_id = loadShader("TextVertexShader.vertexshader", "TextFragmentShader.fragmentshader") ;
+        vao_id = loadAndBindVAO();
+        vbo_id =  loadAndFillVBO() ;
 
-        GLuint lut_id = loadLUT(g_lut_texture_data) ;
-        GLuint texture_id = loadTexture() ;
+        lut_id = loadLUT(g_lut_texture_data) ;
+        texture_id = loadTexture() ;
         //Create LUT and texture from file
 
         GLuint texture_sampler, lut_sampler, mat_proj ;
@@ -461,7 +477,6 @@ int main()
         do {
             glClear ( GL_COLOR_BUFFER_BIT) ; // reset setting and screen to set previously
             glUseProgram (program_id) ; // use the shader
-
             p_viewport = updateViewport(window, p_viewport) ;
 
             for (int i = 0 ; i < 4 ; i++) {
@@ -475,26 +490,23 @@ int main()
             glfwSwapBuffers(window) ;
             glfwPollEvents() ;
         } while (closeWindow(window) == 0)  ;
-        deleteMemory (program_id, vao_id, vbo_id, texture_id, lut_id) ;
-    } catch (GLenum err) {
-    switch (err) {
-        case GL_INVALID_ENUM :
-            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag" << endl ;
-            break ;
-        case GL_INVALID_VALUE :
-            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
-            break ;
-        case GL_INVALID_OPERATION :
-            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
-            break ;
-        case GL_INVALID_FRAMEBUFFER_OPERATION :
-            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " << endl ;
-            break ;
-        case GL_OUT_OF_MEMORY :
-            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " << endl ;
-            break ;
-        }
+    } catch (std::exception& error)
+    {
+        cerr << "Error: " << error.what() << endl;
+        cerr << "The program will terminate" << endl;
     }
+    catch (std::string& error)
+    {
+        cerr << "Error: " << error << endl;
+        cerr << "The program will terminate" << endl;
+    }
+    catch (const char* error)
+    {
+        cerr << "Error: " << error << endl;
+        cerr << "The program will terminate" << endl;
+    }
+    deleteMemory (program_id, vao_id, vbo_id, texture_id, lut_id) ;
+
 }
 
 

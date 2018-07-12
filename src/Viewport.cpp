@@ -59,14 +59,14 @@ void Viewport::setUpCamera () {
         break ;
     case CORONAL_PLANE :
     // CORONAL PLANE : separates ventral and dorsal part z = 0
-        m_camera = lookAt (vec3 (0, 0, -1), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera = lookAt (vec3 (0.0000001, 0, -10), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
         break ;
     case TRANSVERSE_PLANE :
     // TRANSVERSE PLANE : separates upper and lower part y = 0
         m_camera = lookAt (vec3 (0, -10, 0), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
         break ;
     case VOLUME_RENDERING :
-        m_camera = lookAt (vec3 (0, -100, 0), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
+        m_camera = lookAt (vec3 (0, -10, -10), vec3(0, 0, 0), vec3 (0, 0, 1)) ;
         break ;
     case UNKNOWN :
         std::cerr << "View unknown " << std::endl ;

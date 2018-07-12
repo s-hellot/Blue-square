@@ -10,6 +10,7 @@
 
 #include <shader.hpp>
 #include <Viewport.hpp>
+#include <OpenGLException.hpp>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "cloud.h"
@@ -35,24 +36,35 @@ void setGLFWCallbackFunction (GLFWwindow* window) ;
 
 
 bool checkGLError(string FILE, string FUNCTION, int LINE) {
-    GLenum err = glGetError() ;
-    switch (err) {
+
+    GLenum err = GL_NO_ERROR;
+
+#ifndef NDEBUG
+     err = glGetError() ;
+
+    if (err != GL_NO_ERROR) {
+        string error_message ;
+         switch (err) {
         case GL_INVALID_ENUM :
-            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag." ;
             break ;
         case GL_INVALID_VALUE :
-            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. " ;
             break ;
         case GL_INVALID_OPERATION :
-            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. " ;
             break ;
         case GL_INVALID_FRAMEBUFFER_OPERATION :
-            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE).  In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " ;
             break ;
         case GL_OUT_OF_MEMORY :
-            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. In "  << FILE << " in " << FUNCTION << " at " << LINE << endl ;
+            error_message = "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " ;
             break ;
+         }
+        throw OpenGLException(__FILE__, __FUNCTION__, __LINE__, err, error_message) ;
     }
+
+#endif
     return (err !=  GL_NO_ERROR) ;
 }
 
@@ -60,6 +72,7 @@ void initGL () {
     glClearColor(0,255,0,0) ;
     glEnable (GL_DEPTH_TEST) ;
 }
+
 GLFWwindow* initGlfwAndWindow () {
     if ( !glfwInit ()) {
         cerr << "Failed to initialize GLFW\n" << endl ;
@@ -211,16 +224,54 @@ GLuint loadAndBindVAO () {
 }
 
 //not used
-GLuint* loadAndFillVBO (float* vertex, float* textureCoord) {
-    GLuint *vbo_id =  new GLuint[2];
-    // create VBO which allocate space in the VRAM
-    glGenBuffers (2, vbo_id) ;
-    // unlock it
-    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[0]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(vertex), vertex, GL_STREAM_DRAW) ;
-    glBindBuffer (GL_ARRAY_BUFFER, vbo_id[1]) ;
-    glBufferData (GL_ARRAY_BUFFER, sizeof(textureCoord), textureCoord, GL_STREAM_DRAW) ;
-    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+GLuint loadAndFillVBO () {
+    float vertices[] = {
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+            -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    } ;
+    GLuint vbo_id ;
+    glGenBuffers (1, &vbo_id) ;
+    glBindBuffer (GL_ARRAY_BUFFER, vbo_id) ;
+    glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
     return vbo_id ;
 }
 
@@ -279,13 +330,13 @@ void deleteMemory (GLuint program_id, GLuint vao_id, GLuint* vbo_id, GLuint text
 }
 
 void loadUniformMatrix (GLuint proj_id, GLuint view_id, Viewport current_viewport) {
-        mat4 projection, view ;
-        //view = lookAt(g_camera_pos, g_camera_pos + g_camera_front, g_camera_up) ;
-        projection = perspective(radians (g_fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
-        view = current_viewport.getCamera() ;
-        glUniformMatrix4fv (proj_id, 1, GL_FALSE, &projection[0][0]) ;
-        glUniformMatrix4fv (view_id, 1, GL_FALSE, &view[0][0]) ;
-        checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+    mat4 projection, view ;
+    //view = lookAt(g_camera_pos, g_camera_pos + g_camera_front, g_camera_up) ;
+    projection = perspective(radians (g_fov), 1024.0f/768.0f, 0.10f, 100.0f) ;
+    view = current_viewport.getCamera() ;
+    glUniformMatrix4fv (proj_id, 1, GL_FALSE, &projection[0][0]) ;
+    glUniformMatrix4fv (view_id, 1, GL_FALSE, &view[0][0]) ;
+    checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
 
 }
 
@@ -331,56 +382,13 @@ Viewport* initViewport (GLFWwindow* window) {
 }
 int main()
 {
+    GLuint program_id, vao_id, vbo_id, texture_id ;
     try {
         GLFWwindow* window = initGlfwAndWindow() ;
         initGlew() ;
         initGL () ;
 
-        GLuint program_id = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
-
-        float vertices[] = {
-            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-             0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-             0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-            -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-             0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-             0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-             0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-             0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-             0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-            -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-        } ;
+        program_id = loadShader("ProjecVertexShader.vertexshader", "ProjecFragmentShader.fragmentshader") ;
         vec3 cube_positions[] = {
           vec3( 0.0f,  0.0f,  0.0f),
           vec3( 2.0f,  5.0f, -15.0f),
@@ -397,16 +405,12 @@ int main()
         GLuint proj_id, view_id, model_id, texture_sampler ;
         generateUniformVariable (program_id, &texture_sampler, &proj_id, &view_id, &model_id) ;
 
-        GLuint vao_id  = loadAndBindVAO();
-
-        GLuint vbo_id ;
-        glGenBuffers (1, &vbo_id) ;
-        glBindBuffer (GL_ARRAY_BUFFER, vbo_id) ;
-        glBufferData (GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW) ;
+        vao_id  = loadAndBindVAO();
+        vbo_id = loadAndFillVBO() ;
 
         loadDataToShader(vbo_id) ;
 
-        GLuint texture_id = loadTexture() ;
+        texture_id = loadTexture() ;
 
         float last_frame = 0.0f ;
         Viewport* p_viewport = initViewport(window) ;
@@ -416,6 +420,8 @@ int main()
             g_delta_time = current_frame - last_frame ;
             last_frame = current_frame ;
             glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
+            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
+            glClear (GL_QUADS) ;
             for (int i = 0 ; i < 4 ; i++) {
                 p_viewport[i].useViewport() ;
                 render (program_id, proj_id, view_id, texture_id, texture_sampler, model_id, cube_positions, p_viewport[i]) ;
@@ -428,25 +434,24 @@ int main()
         } while (closeWindow(window) == 0)  ;
         // no finally block, the id variable are known only in try block
         disableData() ;
-        deleteMemory(program_id, vao_id, &vbo_id, texture_id) ;
-    } catch (GLenum err) {
-        switch (err) {
-        case GL_INVALID_ENUM :
-            cerr << "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag" << endl ;
-            break ;
-        case GL_INVALID_VALUE :
-            cerr << "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
-            break ;
-        case GL_INVALID_OPERATION :
-            cerr << "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag." << endl ;
-            break ;
-        case GL_INVALID_FRAMEBUFFER_OPERATION :
-            cerr << "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " << endl ;
-            break ;
-        case GL_OUT_OF_MEMORY :
-            cerr << "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " << endl ;
-            break ;
-        }
     }
+    catch (std::exception& error)
+    {
+        cerr << "Error: " << error.what() << endl;
+        cerr << "The program will terminate" << endl;
+    }
+    catch (std::string& error)
+    {
+        cerr << "Error: " << error << endl;
+        cerr << "The program will terminate" << endl;
+    }
+    catch (const char* error)
+    {
+        cerr << "Error: " << error << endl;
+        cerr << "The program will terminate" << endl;
+    }
+
+     deleteMemory(program_id, vao_id, &vbo_id, texture_id) ;
+
     return 0;
 }
