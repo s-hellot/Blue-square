@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>
+#include <stdio.h>
 // GLEW to include before gl.h and glfw3.h
 #include <GL/glew.h>
 
@@ -151,7 +152,7 @@ GLuint loadTexture () {
 void initGlew () {
     glewExperimental = true ;
     if (glewInit () != GLEW_OK) {
-        cerr << "Failed to initialize GLEW\n" << endl ;
+        fprintf (stderr, "Failed to initialize GLEW\n") ;
     }
 }
 

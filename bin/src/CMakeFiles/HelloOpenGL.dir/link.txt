@@ -1,3 +1,0 @@
-"C:\Program Files\CMake\bin\cmake.exe" -E remove -f CMakeFiles\HelloOpenGL.dir/objects.a
-C:\PROGRA~2\CODEBL~1\MinGW\bin\ar.exe cr CMakeFiles\HelloOpenGL.dir/objects.a @CMakeFiles\HelloOpenGL.dir\objects1.rsp
-C:\PROGRA~2\CODEBL~1\MinGW\bin\G__~1.EXE -g   -Wl,--whole-archive CMakeFiles\HelloOpenGL.dir/objects.a -Wl,--no-whole-archive  -o HelloOpenGL.exe -Wl,--out-implib,libHelloOpenGL.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\HelloOpenGL.dir\linklibs.rsp
