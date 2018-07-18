@@ -152,7 +152,7 @@ GLuint loadTexture () {
 void initGlew () {
     glewExperimental = true ;
     if (glewInit () != GLEW_OK) {
-        fprintf (stderr, "Failed to initialize GLEW\n") ;
+        cerr << "Failed to initialize GLEW\n" << endl ;
     }
 }
 
