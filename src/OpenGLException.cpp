@@ -6,7 +6,7 @@ OpenGLException::OpenGLException(const std::string a_file_name, const std::strin
 
 
 const char* OpenGLException::what() const throw() {
-    std::stringstream temp_error_line ;
+    std::ostringstream temp_error_line ;
     temp_error_line << m_error_name << std::endl << m_error_message << std::endl << "\t- in File: " << m_file_name << std::endl << "\t- in Function : " << m_function_name << std::endl << "\t- at Line : " << m_error_line << std::endl ;
     std::string strg (temp_error_line.str()) ;
     return strg.c_str() ;

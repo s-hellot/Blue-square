@@ -1,0 +1,15 @@
+#version 330 core
+
+// Ouput data
+out vec3 color;
+
+in vec2 textureCoord ;
+
+uniform sampler2D textSampler ;
+void main()
+{
+
+	// Output color = blue
+	color = texture (textSampler, textureCoord).rgb ;
+
+}

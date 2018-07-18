@@ -1,0 +1,8 @@
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/CMakeFiles/edit_cache.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/CMakeFiles/rebuild_cache.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/SmallGL.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/Texture.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/HelloOpenGL.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/edit_cache.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/Projection.dir
+C:/Users/Simon/Documents/GitHub/Blue-square/bin/src/CMakeFiles/rebuild_cache.dir

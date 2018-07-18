@@ -1,0 +1,2 @@
+C:\PROGRA~2\CODEBL~1\MinGW\bin\ar.exe qc libSmallGL.a  CMakeFiles/SmallGL.dir/shader.cpp.obj
+C:\PROGRA~2\CODEBL~1\MinGW\bin\ranlib.exe libSmallGL.a
