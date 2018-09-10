@@ -1,0 +1,13 @@
+#version 330 core
+
+// Output data
+out vec3 color;
+
+
+in vec3 fragmentColor ;
+in vec3 render_color ;
+
+void main()
+{
+    color = render_color ;
+}

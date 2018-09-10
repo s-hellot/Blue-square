@@ -14,6 +14,7 @@ using namespac glm ;
 
 #include <shader.hpp>
 
+
 #define WIDTH 1024
 #define HEIGHT 768
 using namespace std;
@@ -29,8 +30,9 @@ GLFWwindow* initGlfwAndWindow () {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
 
-    GLFWwindow* window ;
+    GLFWwindow* window, *second_window ;
     window = glfwCreateWindow (WIDTH, HEIGHT, "First Window", NULL, NULL ) ;
+    //second_window = glfwCreateWindow (WIDTH, HEIGHT, "Second Window", NULL, NULL ) ;
     if (window == NULL) {
         fprintf (stderr, "Failed to open GLFW window\n") ;
         glfwTerminate() ;
@@ -59,12 +61,9 @@ int main()
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE) ;
     glClearColor(0,255,0,0) ;
     GLuint programID = LoadShaders("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader") ;
-    float vertex [] = { -0.5, -0.5, 0,
-                        -0.5,  0.5, 0,
-                         0.5, -0.5, 0,
-                        -0.5,  0.5, 0,
-                         0.5, -0.5, 0,
-                         0.5,  0.5, 0 } ;
+    float vertex [] = { -0.5, -0.5, 0, 1, 0, 0,
+                        -0.5,  0.5, 0, 1, 0, 0,
+                         0.5, -0.5, 0, 1, 0, 0 } ;
     GLuint vaoID ;
     GLuint vboID ;
      //create VAO which contains every information about the location and state of the VBO in VRAM
@@ -81,9 +80,13 @@ int main()
         glUseProgram (programID) ; // use the shader
         glEnableVertexAttribArray (0) ; // tells which VAO stores the data we want to draw ?
         glBindBuffer (GL_ARRAY_BUFFER, vboID) ; // unlock buffer twice ?
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0) ; // tells how the data should be read
-        glDrawArrays(GL_TRIANGLES, 0 , 6) ; //render the data
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5*sizeof(float), 0) ; // tells how the data should be read
+        glEnableVertexAttribArray (1) ; // tells which VAO stores the data we want to draw ?
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5*sizeof(float), (void*) (2*sizeof(float))) ; // tells how the data should be read
+        glDrawArrays(GL_TRIANGLES, 0 , 3) ; //render the data
         glDisableVertexAttribArray (0) ;
+        glDisableVertexAttribArray (1) ;
+
         glfwSwapBuffers(window) ;
         glfwPollEvents() ; // process events already in the event queue
         //getKey uses qwerty keyboard

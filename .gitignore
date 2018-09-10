@@ -1,4 +1,11 @@
 bin
+texture/sorted_MRI_image_data.mhd
+texture/sorted_MRI_image_data-2.mhd
+texture/sorted_MRI_image_data.raw
+texture/sorted_MRI_image_data-2.raw
+texture/sorted_MRI_image_data.mha
+texture/sorted_MRI_image_data-2.mha
+contrib/VL
 bin/src/TextVertexShader.vertexshader
 *.exe
 bin/src/TextFragmentShader.fragmentshader

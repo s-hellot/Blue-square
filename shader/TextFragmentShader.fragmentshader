@@ -3,19 +3,23 @@
 // Output data
 out vec3 color;
 
-uniform sampler2D myTextureSampler ;
+uniform sampler3D myTextureSampler ;
 uniform sampler1D myLutSampler ;
 uniform float bright ;
 uniform float contr ;
 
-in vec2 coord ;
+in vec3 coord ;
 
 void main()
 {
-    float texel=texture (myTextureSampler, coord).r;
-    vec3 color8from8lut = texture (myLutSampler, texel).rgb ;
-    color = (color8from8lut-0.5)*contr+0.5+bright;
-	//color = vec3(luminance, luminance, luminance) ;
+
+        float texel=texture (myTextureSampler, coord).r;
+
+        texel = (texel-0.5)*contr+0.5+bright;
+        color = texture (myLutSampler, texel).rgb ;
+        //color = (color8from8lut-0.5)*contr+0.5+bright;
+
+	//color = color8from8lut ;
 
     //color = texture (myTextureSampler, coord).rgb ;
     //color = vec3 (texel, texel, texel) ;

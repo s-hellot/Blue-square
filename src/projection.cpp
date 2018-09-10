@@ -4,7 +4,7 @@
 // GLEW to include before gl.h and glfw3.h
 #include <GL/glew.h>
 
-#include <GL/gl.h>
+    #include <GL/gl.h>
 // GLFW : handle window and keyboard
 #include <GLFW/glfw3.h>
 
@@ -38,34 +38,16 @@ Viewport* g_p_viewport = new Viewport [4] ;
 void setGLFWCallbackFunction (GLFWwindow* window) ;
 
 
-bool checkGLError(string FILE, string FUNCTION, int LINE) {
+bool checkGLError(const char* FILE, const  char* FUNCTION, int LINE) {
 
     GLenum err = GL_NO_ERROR;
-
 #ifndef NDEBUG
      err = glGetError() ;
 
     if (err != GL_NO_ERROR) {
-        string error_message ;
-         switch (err) {
-        case GL_INVALID_ENUM :
-            error_message = "An unacceptable value is specified for an enumerated argument. The offending command is ignored and has no other side effect than to set the error flag." ;
-            break ;
-        case GL_INVALID_VALUE :
-            error_message = "A numeric argument is out of range. The offending command is ignored and has no other side effect than to set the error flag. " ;
-            break ;
-        case GL_INVALID_OPERATION :
-            error_message = "The specified operation is not allowed in the current state. The offending command is ignored and has no other side effect than to set the error flag. " ;
-            break ;
-        case GL_INVALID_FRAMEBUFFER_OPERATION :
-            error_message = "The command is trying to render to or read from the framebuffer while the currently bound framebuffer is not framebuffer complete (i.e. the return value from glCheckFramebufferStatus is not GL_FRAMEBUFFER_COMPLETE). " ;
-            break ;
-        case GL_OUT_OF_MEMORY :
-            error_message = "There is not enough memory left to execute the command. The state of the GL is undefined, except for the state of the error flags, after this error is recorded. " ;
-            break ;
-         }
-        throw OpenGLException(__FILE__, __FUNCTION__, __LINE__, err, error_message) ;
+        throw OpenGLException(FILE, FUNCTION, LINE, err) ;
     }
+
 
 #endif
     return (err !=  GL_NO_ERROR) ;
@@ -87,7 +69,7 @@ GLFWwindow* initGlfwAndWindow () {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
 
     GLFWwindow* window ;
-    window = glfwCreateWindow (WIDTH_INIT, HEIGHT_INIT, "First Window", NULL, NULL ) ;
+    window = glfwCreateWindow (WIDTH_INIT, HEIGHT_INIT, "Projection Window", NULL, NULL ) ;
     if (window == NULL) {
         cerr << "Failed to open GLFW window\n" << endl ;
         glfwTerminate() ;
@@ -403,10 +385,10 @@ void render (GLuint program_id, GLuint proj_id, GLuint view_id, GLuint texture_i
 }
 
 Viewport* initViewport (GLFWwindow* window) {
-    Viewport upperleft_viewport (window,             0, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::SAGITAL_PLANE) ;
-    Viewport upperright_viewport (window, WIDTH_INIT/2, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::CORONAL_PLANE) ;
-    Viewport bottomleft_viewport (window,            0,             0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::TRANSVERSE_PLANE) ;
-    Viewport bottomright_viewport (window, WIDTH_INIT/2,            0, HEIGHT_INIT/2, WIDTH_INIT/2, Viewport::VOLUME_RENDERING) ;
+    Viewport upperleft_viewport (window,             0, 0, HEIGHT_INIT, WIDTH_INIT, SAGITAL_PLANE) ;
+    Viewport upperright_viewport (window, WIDTH_INIT/2, HEIGHT_INIT/2, HEIGHT_INIT/2, WIDTH_INIT/2, CORONAL_PLANE) ;
+    Viewport bottomleft_viewport (window,            0,             0, HEIGHT_INIT/2, WIDTH_INIT/2, TRANSVERSE_PLANE) ;
+    Viewport bottomright_viewport (window, WIDTH_INIT/2,            0, HEIGHT_INIT/2, WIDTH_INIT/2, VOLUME_RENDERING) ;
 
     g_p_viewport [0] = upperleft_viewport ;
     g_p_viewport [1] = upperright_viewport ;
@@ -472,8 +454,7 @@ int main()
             g_delta_time = current_frame - last_frame ;
             last_frame = current_frame ;
             glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) ; // reset setting and screen to set previously
-            checkGLError(__FILE__, __FUNCTION__, __LINE__) ;
-            for (int i = 0 ; i < 4 ; i++) {
+            for (int i = 0 ; i < 1 ; i++) {
                 g_p_viewport[i].useViewport() ;
                 render (program_id, proj_id, view_id, texture_id, texture_sampler, model_id, cube_positions, g_p_viewport[i]) ;
             }

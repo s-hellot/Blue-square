@@ -2,19 +2,17 @@
 
 // Input vertex data, different for all executions of this shader.
 layout(location = 0) in vec3 vertexPosition_modelspace ;
-layout(location = 1) in vec2 textureCoord ;
+layout(location = 1) in vec3 textureCoord ;
 
-out vec2 coord ;
+out vec3 coord ;
 
 uniform mat4 projection ;
-uniform int width ;
-uniform int height ;
+
 
 void main(){
 
-    vec4 position = projection * vec4(vertexPosition_modelspace,1) ;
-    //position.x *= width ;
-    //position.y *= height ;
+    vec4 position = projection * vec4(vertexPosition_modelspace.xyz,1) ;
+
     gl_Position = position ;
     coord = textureCoord ;
 
